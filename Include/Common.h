@@ -13,6 +13,11 @@ using std::vector;
 constexpr size_t FREE_LIST_NUM = 208; //哈希表中自由链表个数/桶数
 constexpr size_t MAX_BYTES = 256*1024; //ThreadCache单次分配给线程最大字节数
 
+inline void*& ObjNext(void* obj) //获取obj指向的内存块中存储的指针
+{
+    return *(void**)obj;
+}
+
 
 class FreeList // ThreadCache中的自由链表
 {
@@ -30,12 +35,28 @@ private:
     size_t _maxSize = 1;
 
 public:
+    // 这里返回值要加引用，不仅能读取还能修改
+    
+
+    void PushRange(void* start, void* end)
+    {
+        // TC单词分配只分配桶中的一个块
+        // 因此触发向CC申请内存时，一定是当前桶没块了
+        // 即_freeList = nullptr?
+        assert(_freeList == nullptr);
+        
+        ObjNext(end) = _freeList;
+        _freeList = start;
+        
+
+    }
+ 
     void Push(void* obj) //回收空间
     {
         //头插
-        //在obj指向的内存中写入_freeList
+        //在obj指向的内存中的“指针”写入_freeList
         //将obj赋值给_freeList
-        *(void**)obj = _freeList;
+        ObjNext(obj) = _freeList;
         _freeList = obj;
     }
 
@@ -44,7 +65,7 @@ public:
         //头删
         //将_freeList赋值为它指向的内存块中的指针
         void* ptr = _freeList;
-        _freeList = *(void**)ptr;
+        _freeList = ObjNext(ptr);
         return ptr;
     }
 

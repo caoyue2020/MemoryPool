@@ -1,6 +1,11 @@
 #include "../Include/ThreadCache.h"
 #include "../Include/CentralCache.h"
-//分配线程内存
+
+
+/**
+ * @param 线程需求的字节数
+ * @return void* 内存块指针
+ */
 void* ThreadCache::Allocate(size_t size)
 {
     assert(size <= MAX_BYTES);
@@ -58,9 +63,13 @@ void* ThreadCache::FetchFromCentralCache(size_t index, size_t alignSize)
     if (actualNum == 1)
     {
         // 如果等于1，那么这个块得直接分配个线程
+        return start;
     }
     else
     {
-        // _freeLists[index].Pu
+        // 第一个返回给线程，剩余存入TC的FreeList
+        _freeLists[index].PushRange(ObjNext(start), end);
+
+        return start;
     }
 }
