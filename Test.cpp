@@ -1,6 +1,6 @@
 #include <chrono>   // C++11 高精度计时库
 #include <new>      // 必须包含，用于 placement new
-#include "ObjectPool.h"
+#include "./Include/ObjectPool.h"
 
 
 
@@ -49,7 +49,7 @@ void Benchmark()
             // 申请 + 写入
             for (int i = 0; i < N; ++i)
             {
-                TreeNode* node = new TreeNode;
+                auto node = new TreeNode;
                 node->_val = i; // 【关键】必须写入，模拟真实使用，防止被优化
                 v.push_back(node);
             }
