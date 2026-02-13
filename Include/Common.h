@@ -11,13 +11,24 @@ using std::endl;
 using std::vector;
 
 constexpr size_t FREE_LIST_NUM = 208; //哈希表中自由链表个数/桶数
-constexpr size_t MAX_BYTES = 256*1024; //ThreadCache单次申请最大字节数
+constexpr size_t MAX_BYTES = 256*1024; //ThreadCache单次分配给线程最大字节数
 
 
-class FreeList
+class FreeList // ThreadCache中的自由链表
 {
 private:
     void* _freeList = nullptr; //这里用void*类型了，之前定长的时候使用char*
+    
+    // 当前允许分配的最大块数，慢启动
+    // 不过为什么是FreeList管理？
+    // CC中一个槽位有多个FreeList，为什么不设计为一个槽内统一分配数量
+    // 等等，这个好像是TC内部持有的
+    // 没错是这样，每个线程的TC的每个槽位都有一个这个，这个东西限制了当前线程
+    // 申请的最大内存块数
+    // 且随着慢启动，TC某个大小的块需求越多，这个也会逐渐增加
+    // 但显然不可能允许它一直往上加，因此有@SizeClass::NumMoveSize去计算上限
+    size_t _maxSize = 1;
+
 public:
     void Push(void* obj) //回收空间
     {
@@ -42,6 +53,10 @@ public:
         return _freeList == nullptr;
     }
 
+    size_t& MaxSize() // 注意这里给引用，每次申请之后会让_maxSize++
+    {
+        return _maxSize;
+    }
 };
 
 
@@ -130,6 +145,29 @@ public:
         
     }
 
+    // 人为控制单次分配数量上限
+    static size_t NumMoveSize(size_t size)
+    {
+        assert(size > 0);
+        int num = MAX_BYTES / size; //MAX_BYTES为TC单次申请上限
+        
+        /*TODO:如何理解？
+        首先，MAX_BYTES=256KB。若TC申请8B，256KB/8B= 2^15,
+        但显然这个数量太多了，若允许，TC会得到很多8b小块，
+        线程大概率用不完这些块就会产生浪费，因此限制其小于512；
+        
+        若TC单次申请256KB，则num=1，但若控制CC单次给TC分配上限为1，
+        若TC需要给线程分配4*256KB，就会频繁调用，因此这里放宽上限，
+        但也不能放宽太多，256KB是非常大的空间了，设为2差不多了
+
+        总结：[2,512]，是人为对分配上限的兜底
+        小对象一次批量上限高；大对象一次批量上限低
+        */
+        if (num > 512) num = 512;
+        if (num < 2) num = 2;
+        
+        return num;
+    }
 };
 
 

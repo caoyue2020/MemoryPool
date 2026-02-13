@@ -1,3 +1,4 @@
+#
 
 ## ObjectPool
 
@@ -100,7 +101,7 @@ size范围				对齐数				对应哈希桶下标范围
 ![alt text](NOTE/Common/image.png)
 
 
-##ThreadCache
+## ThreadCache
 ### TLS-线程局部存储
 进程的全局变量是每个线程共享的，那有没有一种全局变量能让某个线程自己独有但是其他线程看不见呢？
 答案是有的，就是TLS。
@@ -109,6 +110,45 @@ size范围				对齐数				对应哈希桶下标范围
 ```cpp
 static thread_local ThreadCache* pTLSThreadCache = nullptr;
 ```
+
+### FetchFromCentralCache
+
+```cpp
+void* ThreadCache::Allocate(size_t size)
+{
+    assert(size <= MAX_BYTES);
+
+    size_t alignSize = SizeClass::RoundUp(size);
+    size_t index = SizeClass::Index(size);
+
+    //_freeLists[index]:指定哈希桶
+    if(!_freeLists[index].Empty())
+    {
+        return _freeLists[index].Pop();
+    }
+    else
+    {
+        //自由链表为空。向CentralCache申请空间
+        return FetchFromCentralCache(index, alignSize);
+    }
+
+}
+```
+需要注意，TC向CC申请空间时，除了给TC自身申请空间，还要返回线程申请的空间，因此需要将span返回的连续内存中，挑出第一块给线程，剩余的给TC自身
+```cpp 
+//FetchFromCentralCache::
+    assert(actualNum >= 1);
+
+    if (actualNum == 1)
+    {
+        // 如果等于1，那么这个块得直接分配个线程
+    }
+    else
+    {
+        // _freeLists[index].Pu
+    }
+```
+![alt text](NOTE/image.png)
 
 ## CenteralCache
 ### CenterCache数据结构
@@ -125,14 +165,14 @@ static thread_local ThreadCache* pTLSThreadCache = nullptr;
 #### SPAN
 1. span管理的是以页（通常为4KB）为单位的大内存块，需要size_t _n去记录管理了多少页？
 2. span管理的多个页会被划分为桶对应的字节大小空间，即每个span再挂载自由链表，需要void* _list指向链表头节点
-TODO:为什么感觉这两个有点重复了？或者说1有点多余？
 
 3. 每个桶下挂的span包含的页数不同，桶对应的字节数越大，页数越大，反之越小。由此，span还需要有个_pageID去记录当前span管理的是哪些页
 
 4. span是双向链表，方便增删改查
 
-5. span中还有size_t _usecount。这个_usecount是用来记录当前span分配出去了多少个块空间，分配一块给tc，对应就要`++use_count`，如果tc还回来了一块，那就`--use_count`。_usecount初始值为0。
-当span中的use_count为0的时候可以将其还给pc以供pc拼接更大的页，用来解决内存碎片问题（外碎片）。
+5. span中还有size_t _usecount。这个_usecount是用来记录当前span分配出去了多少个块空间，分配一块给tc，对应就要`++use_count`，如果tc还回来了一块，那就`--use_count`。_usecount初始值为0。当span中的use_count为0的时候可以将其还给pc以供pc拼接更大的页，用来解决内存碎片问题（外碎片）。
+
+> 为什么需要Span？我猜测单个Span的自由链表是几块连续的页内存，由span去管理一个自由链表是否全部释放，从而回收整片内存。理论上来说，把这些控制信息写在自由链表里应该也行？（或者实际上就可以认为Span是一个自由链表的“头”节点）
 
 
 ### 单例模式与Static
@@ -149,3 +189,5 @@ static CentralCache* GetInstance()
 
 但问题在于代码多次执行到这里，怎么知道静态局部变量是不是已经被创建了？
 实际上声明静态局部变量的时候，编译器会自行插入一段“检查-创建”的代码，若变量不存在则创建，若存在则跳过创建，且整个过程是线程安全的。
+
+

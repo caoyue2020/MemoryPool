@@ -1,5 +1,5 @@
 #include "../Include/ThreadCache.h"
-
+#include "../Include/CentralCache.h"
 //分配线程内存
 void* ThreadCache::Allocate(size_t size)
 {
@@ -33,8 +33,34 @@ void ThreadCache::Deallocate(void* obj, size_t size)
 
 }
 
-void* FetchFromCentralCache(size_t index, size_t alignSize)
+void* ThreadCache::FetchFromCentralCache(size_t index, size_t alignSize)
 {
-    //TODO:
-    return nullptr;
+    // 通过对应桶的MaxSize和人为设置的上限，双重约束
+    size_t batchNum = std::min(_freeLists[index].MaxSize(),
+                                SizeClass::NumMoveSize(alignSize));
+
+    // “慢增长”：没有达到上限，MaxSize++
+    if(batchNum == _freeLists[index].MaxSize()) 
+    {
+        _freeLists[index].MaxSize()++; 
+    }
+
+    void* start = nullptr;
+    void* end = nullptr;
+
+    // 注意这里要先调用GetInstance获取CC指针
+    //TODO:为什么这里传入alignSize而不是index？index不是更方便？
+    size_t actualNum = CentralCache::GetInstance() ->
+                        FetchRangeObj(start, end, batchNum, alignSize);
+    
+    assert(actualNum >= 1);
+
+    if (actualNum == 1)
+    {
+        // 如果等于1，那么这个块得直接分配个线程
+    }
+    else
+    {
+        // _freeLists[index].Pu
+    }
 }
