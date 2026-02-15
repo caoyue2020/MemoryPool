@@ -13,4 +13,7 @@ add_executable(MemoryPool
         Include/ThreadCache.h
         Source/ThreadCache.cpp
         Test.cpp
-        unitTest.cpp)
+        unitTest.cpp
+        Source/CentralCache.cpp
+        Include/PageCache.h
+        Source/PageCache.cpp)

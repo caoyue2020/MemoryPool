@@ -6,7 +6,7 @@
 `char* _memory = nullptr; `
 
 这里不使用`void*`，将 `_memory` 定义为 `char*`，当需要移动 $n$ 个字节时，直接 `_memory += n` 即可，逻辑非常直观。
-![alt text](ObjectPool/image.png)
+![alt text](NOTE/ObjectPool/image.png)
 
 ### 如何分配内存
 ```c++
@@ -18,7 +18,7 @@ _memory += sizeof(T); //内存池指针移动
 _remanenetBytes -= sizeof(T);//减少对应可用内存字节
 ```
 指针的存储的是内存块的首地址，而指针的类型决定了编译器从首地址往后读取多少个字节。
-![alt text](ObjectPool/image-2.png)
+![alt text](NOTE/ObjectPool/image-2.png)
 
 
 ### 自由链表回收内存
@@ -35,7 +35,7 @@ void Delete(T* obj)
         _freelist = obj;
     }
 ```
-![alt text](ObjectPool/image-1.png)
+![alt text](NOTE/ObjectPool/image-1.png)
 
 ### 从自由链表分配内存
 ```c++
@@ -50,7 +50,7 @@ if(_freelist)
     _freelist = next;
 }
 ```
-![alt text](ObjectPool/image-3.png)
+![alt text](NOTE/ObjectPool/image-3.png)
 
 ### 定位new
 ```c++
@@ -98,7 +98,7 @@ size范围				对齐数				对应哈希桶下标范围
 实际上这里的对齐数可以理解为步长
 在[1,128]这个分为内，每个桶的内存块大小为8，16，24……，按8B增长（因为要入指针，因此最小的是8B）
 而在[128_1,1024]这个范围内，每个桶的内存块大小为128+16，128+32，128+48……，按16B增长
-![alt text](Common/image.png)
+![alt text](NOTE/Common/image.png)
 
 
 ## ThreadCache
@@ -148,11 +148,11 @@ void* ThreadCache::Allocate(size_t size)
         // _freeLists[index].Pu
     }
 ```
-![alt text](image.png)
+![alt text](NOTE/image.png)
 
 ## CenteralCache
 ### CenterCache数据结构
-![alt text](CentercCache/image.png)
+![alt text](NOTE/CentercCache/image.png)
 
 **CC与TC的相同点**
 1. CC也是哈希桶，且映射规则与TC一致。这使得当TC某个桶没有空间时可以直接到CC对应小标的哈希桶拿空间
@@ -239,5 +239,25 @@ size_t CentralCache::FetchRangeObj(void*& start, void*& end, size_t batchNum, si
     }
 }
 ```
+**span**的自由链表内存块充足时
+![img.png](NOTE/img_1.png)
+**span**的自由链表内存块不足时
+![img.png](NOTE/img.png)
 
-![img.png](img.png)
+
+## PageCache
+### 数据结构
+pc中的SpanList则是按span页数进行映射的，也就是说第i号桶中挂的span都是i页内存
+![](NOTE/img_3.png)
+
+#### CC向PC申请，span的分裂
+CC向PC申请以page为单位的内存，假设申请2个page，则PC检查第2个槽位是否有span，若没有则检查下一个槽位以此类推，直到找到一个span，假设找到了第4个槽位的span，那么就将这个span分裂成2个span，每个span管理2页内存，其中一个span给CC，另一个span则挂在第2个槽位上。若一直到_spanList[128]都没有合适的span，那么就向操作系统申请，假设申请了128页内存，则将这个span分裂成2+126。
+![alt text](NOTE/image-2.png)
+
+#### PC回收CC中的SPAN，span的合并
+如果CC释放回一个span，则依次寻找span所管理的页号的前后页号的页有没有空闲，看是否可以合并，如果合并继续向前寻找。这样就可以将切小的内存合并收缩成大的span，减少内存碎片。
+
+
+#### PC的全局锁
+cc只是对单个桶进行加锁，不是整个cc加锁。当多个线程向其对应tc申请空间的时候，可能出现多个tc同时向cc申请空间，而cc中又可能出现多个桶都没有空间的情况，那么就会有多执行流向pc申请span，但是pc中加的就不是桶锁了，而是对pc整体加锁。
+![](NOTE/img_4.png)

@@ -19,9 +19,13 @@ public:
      * @param end [out] 返回的大内存块终止地址
      * @param batchNum [in] TC请求的内存块数量
      * @param size [in] size为TC需要的单块内存块字节数
-     * @return num 返回CC实际提供的大小（span可用块数量可能小于TC请求的数量）
+     * @return actualNum 返回CC实际提供的大小（span可用块数量可能小于TC请求的数量）
      */
     size_t FetchRangeObj(void*& start, void*& end, size_t batchNum, size_t size);
+
+    Span* getOneSpan(SpanList& list, size_t size) {
+        return nullptr;
+    }
 
 
 private:
@@ -33,7 +37,6 @@ private:
     // 以SpanList为元素的哈希表
     // 除了基础元素不同，其余逻辑与TC中一致
     SpanList _spanLists[FREE_LIST_NUM];
-
 };
 
 

@@ -1,10 +1,5 @@
+#pragma once
 #include "Common.h"
-#include<atomic>
-
-
-
-//见MD
-static thread_local ThreadCache* pTLSThreadCache = nullptr;
 
 class ThreadCache
 {
@@ -19,3 +14,4 @@ public:
     void* FetchFromCentralCache(size_t index, size_t alignSize);
 };
 
+static thread_local ThreadCache* pTLSThreadCache = nullptr;

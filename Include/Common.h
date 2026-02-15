@@ -12,10 +12,13 @@ using std::vector;
 
 constexpr size_t FREE_LIST_NUM = 208; //哈希表中自由链表个数/桶数
 constexpr size_t MAX_BYTES = 256*1024; //ThreadCache单次分配给线程最大字节数
+constexpr size_t PAGE_NUM = 129; //PageCash中最大的span控制的页数（这里为129是为了下标和桶能直接映射）
+
 
 //获取obj指向的内存块中存储的指针
 inline void*& ObjNext(void* obj)
 {
+    // 这里返回值要加引用，不仅能读取还能修改
     return *(void**)obj;
 }
 
@@ -31,12 +34,9 @@ private:
     size_t _maxSize = 1;
 
 public:
-    // 这里返回值要加引用，不仅能读取还能修改
-    
-
     void PushRange(void* start, void* end)
     {
-        // TC单词分配只分配桶中的一个块
+        // TC单次分配只分配桶中的一个块（Pop）
         // 因此触发向CC申请内存时，一定是当前桶没块了
         // 即_freeList = nullptr?
         assert(_freeList == nullptr);
@@ -230,7 +230,6 @@ public:
         //TODO:这里并不删除pos节点，而是等待后续回收
         // 回收相关逻辑
 
-
     }
 
 
@@ -242,7 +241,11 @@ public:
         _head->_next = _head;
         _head->_prev = _head;
     }
+
+public:
+    std::mutex mtx;
+
 private:
     Span* _head;
-    std::mutex _mtx; //每一个桶单独加锁
+
 };

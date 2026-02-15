@@ -57,7 +57,7 @@ void* ThreadCache::FetchFromCentralCache(size_t index, size_t alignSize)
     //TODO:为什么这里传入alignSize而不是index？index不是更方便？
     size_t actualNum = CentralCache::GetInstance() ->
                         FetchRangeObj(start, end, batchNum, alignSize);
-    
+
     assert(actualNum >= 1);
 
     if (actualNum == 1)
@@ -69,7 +69,6 @@ void* ThreadCache::FetchFromCentralCache(size_t index, size_t alignSize)
     {
         // 第一个返回给线程，剩余存入TC的FreeList
         _freeLists[index].PushRange(ObjNext(start), end);
-
         return start;
     }
 }
