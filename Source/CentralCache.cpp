@@ -12,7 +12,7 @@ size_t CentralCache::FetchRangeObj(void*& start, void*& end, size_t batchNum, si
 
     // 获取一个非空的span指针，从该span的frreList上取下连续内存块，整个过程加锁
     {
-        std::lock_guard<std::mutex> lg(_spanLists[index].mtx);
+        std::unique_lock<std::mutex> lg(_spanLists[index].mtx);
         Span* span = getOneSpan(_spanLists[index], size);
         assert(span);
         assert(span->_freeList);
@@ -38,6 +38,7 @@ size_t CentralCache::FetchRangeObj(void*& start, void*& end, size_t batchNum, si
     }
 }
 
+
 Span* CentralCache::getOneSpan(SpanList &list, size_t size) {
     // 1. 遍历自身
     Span* it = list.Begin();
@@ -46,13 +47,23 @@ Span* CentralCache::getOneSpan(SpanList &list, size_t size) {
             return it; // 找到了管理空间不为空的span
         it = it->_next;
     }
+    // 解桶锁，因为后续暂时不需要操作桶
+    list.mtx.unlock();
 
     // 2. 代码执行到这里说明当前span链表中没找到，则向PC申请
     // 但是CC和TC之间的内存管理是以块为单位（size为块的字节数）
     // 而PC和CC之间是以Page为单位
     // 2.1 size和page的转换，按该size在CC的单次分配上限去算
     size_t npage = SizeClass::NumMovePage(size);
-    Span* span = PageCache::getInstance()->NewSpan(npage);
+
+    // 需要注意，由于NewSpan内部存在递归
+    // 函数没出栈lock_guard不解锁，导致递归的函数不能进栈，会发生死锁
+    // 因此要在NewSpan外部去加锁
+    Span* span = nullptr;
+    {
+        std::lock_guard<std::mutex> lg(PageCache::getInstance()->_pageMtx);
+        span = PageCache::getInstance()->NewSpan(npage);
+    }
 
     // 2.2 按size划分连续内存空间
     char* start = (char*)(span->_pageId << PAGE_NUM); // start用char*，方便后续的+=操作
@@ -70,7 +81,9 @@ Span* CentralCache::getOneSpan(SpanList &list, size_t size) {
     ObjNext(tail) = nullptr; // tail最后需指向null
 
     // 3. 将这个span插入到当前的spanlist中
-    list.Insert(list.Begin(),span);
+    // 要对桶操作了，把桶锁加回来
+    list.mtx.lock();
+    list.PushFront(span);
 
     // 4. 注意最后要返回这个span。
     // 因为要从这个span中截取一定的内存块给TC

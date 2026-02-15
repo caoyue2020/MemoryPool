@@ -23,11 +23,7 @@ public:
      */
     Span* NewSpan(size_t k);
 
-
-
 private:
     PageCache() = default;
     SpanList _spanLists[PAGE_NUM];
-
-
 };

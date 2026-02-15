@@ -25,6 +25,7 @@ public:
 
     // CC获取一个非空的span，从中选取内存分配给TC
     // 两种情况，自身有 or 需向PC申请
+    // PC锁
     Span* getOneSpan(SpanList& list, size_t size);
 
 

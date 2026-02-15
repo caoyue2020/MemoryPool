@@ -282,6 +282,13 @@ static size_t NumMovePage(size_t size) {
 	}
 ```
 
+
+### 关于锁（为什么要用uniqe_lock）
+首先向cc自己的哈希桶中拿span的时候要加锁，如果cc的桶中没有span就要像pc申请span，那么在cc向pc申请span的时候需要将cc的桶锁解除（因为期间可能有别的线程归还空间），然后加上pc的整体的锁，申请到新的span后解除pc的整体锁，然后cc对新span进行切分，切分完毕后，先加桶锁再将切完的span挂到对应的桶中，然后给将这个新挂上去的span管理的空间交给需要的tc之后再解锁。
+
+那么为什么需要uniqe_lock呢？因为在cc向pc申请span的过程中，cc的桶锁需要先解锁再加上pc的整体锁，uniqe_lock可以实现灵活的加锁和解锁，而lock_guard则不行。
+
+
 **连续内存转为内存块**\
 PC中，span的自由链表为空，使用页号以及页数来管理连续的未划分空间，该span传给CC后，需CC自行划分
 ## 最初的分配流程

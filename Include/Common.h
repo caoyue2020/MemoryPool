@@ -15,6 +15,59 @@ constexpr size_t MAX_BYTES = 256*1024; // ThreadCache单次分配给线程最大
 constexpr size_t PAGE_NUM = 129; // PageCash中最大的span控制的页数（这里为129是为了下标和桶能直接映射）
 constexpr size_t PAGE_SHIFT = 13; // 一页的位数，这里一页设为8K，13位
 
+
+
+#ifdef _WIN32
+#include <Windows.h>
+#else
+#include <sys/mman.h>
+#include <unistd.h>
+#endif
+
+// 直接去堆上按页申请空间
+inline static void* SystemAlloc(size_t kpage)
+{
+    // 假设 PAGE_SHIFT 在 Common.h 中定义为 13 (8KB)
+    // 1. 计算总字节数
+    size_t size = kpage << PAGE_SHIFT;
+
+#ifdef _WIN32
+    // Windows: 既保留又提交，且可读可写
+    void* ptr = VirtualAlloc(0, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+#else
+    // Linux: 匿名私有映射，可读可写
+    // fd填-1，offset填0
+    void* ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+
+    // Linux下失败返回 MAP_FAILED ((void*)-1)，需要修正为 nullptr 以便统一判断
+    if (ptr == MAP_FAILED)
+    {
+        ptr = nullptr;
+    }
+#endif
+
+    if (ptr == nullptr)
+    {
+        // 申请失败，抛出标准异常
+        throw std::bad_alloc();
+    }
+
+    return ptr;
+}
+
+// 对应的释放函数（可选，如果你需要把内存还给系统）
+inline static void SystemFree(void* ptr, size_t kpage)
+{
+    size_t size = kpage << 13;
+#ifdef _WIN32
+    // Windows 释放: MEM_RELEASE
+    VirtualFree(ptr, 0, MEM_RELEASE);
+#else
+    // Linux 释放
+    munmap(ptr, size);
+#endif
+}
+
 //获取obj指向的内存块中存储的指针
 inline void*& ObjNext(void* obj)
 {
@@ -193,7 +246,9 @@ public:
 
 	    // 这里主要考虑到单次分配总字节数小于一页的情况
 	    // 此时计算出来的npage为0，强制分配一页
-	    if (npage == 0) npage == 1;
+	    if (npage == 0) {
+	        npage == 1;
+	    }
 
 	    return npage;
 	}
@@ -224,11 +279,14 @@ public:
     }
 
     // PC弹出首个非空Span
-    // 该Span只能保证非空
     Span* PopFront() {
         Span* front = Begin();
         Erase(front);
         return front;
+    }
+    void PushFront(Span* span) {
+        Span* front = Begin();
+        Insert(front, span);
     }
 
     // CC遍历槽位获取非空span时需要有链表Begin
