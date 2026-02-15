@@ -7,8 +7,8 @@ public:
     // 单例模式，局部静态变量模式
     static CentralCache* GetInstance()
     {
-        static CentralCache* _sInst;
-        return _sInst;
+        static CentralCache _sInst;
+        return &_sInst;
     }
     CentralCache(const CentralCache& copy) = delete;
     CentralCache& operator =(const CentralCache& copy) = delete;
@@ -23,9 +23,9 @@ public:
      */
     size_t FetchRangeObj(void*& start, void*& end, size_t batchNum, size_t size);
 
-    Span* getOneSpan(SpanList& list, size_t size) {
-        return nullptr;
-    }
+    // CC获取一个非空的span，从中选取内存分配给TC
+    // 两种情况，自身有 or 需向PC申请
+    Span* getOneSpan(SpanList& list, size_t size);
 
 
 private:

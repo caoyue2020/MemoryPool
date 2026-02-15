@@ -247,17 +247,42 @@ size_t CentralCache::FetchRangeObj(void*& start, void*& end, size_t batchNum, si
 
 ## PageCache
 ### 数据结构
-pc中的SpanList则是按span页数进行映射的，也就是说第i号桶中挂的span都是i页内存
+pc中的SpanList则是按span管理的内存页数进行映射的，也就是说第i号桶中挂的span都是i页内存
 ![](NOTE/img_3.png)
 
-#### CC向PC申请，span的分裂
-CC向PC申请以page为单位的内存，假设申请2个page，则PC检查第2个槽位是否有span，若没有则检查下一个槽位以此类推，直到找到一个span，假设找到了第4个槽位的span，那么就将这个span分裂成2个span，每个span管理2页内存，其中一个span给CC，另一个span则挂在第2个槽位上。若一直到_spanList[128]都没有合适的span，那么就向操作系统申请，假设申请了128页内存，则将这个span分裂成2+126。
+#### PC给CC分配Span，span的分裂
+PC向CC分配以Page为单位的内存，假设分配page=2，则PC检查第2个槽位是否有span，若没有则检查下一个槽位以此类推，直到找到一个span，假设找到了第4个槽位的span，那么就将这个span分裂成2个span，每个span管理2页内存，其中一个span给CC，另一个span则挂在第2个槽位上。若一直到_spanList[128]都没有合适的span，那么就向操作系统申请，假设申请了128页内存，则将这个span分裂成2+126。
 ![alt text](NOTE/image-2.png)
 
 #### PC回收CC中的SPAN，span的合并
-如果CC释放回一个span，则依次寻找span所管理的页号的前后页号的页有没有空闲，看是否可以合并，如果合并继续向前寻找。这样就可以将切小的内存合并收缩成大的span，减少内存碎片。
-
+如果PC收到了CC释放的Span，则依次寻找span所管理的页号的前后页号的页有没有空闲，看是否可以合并，如果合并继续向前寻找。这样就可以将切小的内存合并收缩成大的span，减少内存碎片。
 
 #### PC的全局锁
 cc只是对单个桶进行加锁，不是整个cc加锁。当多个线程向其对应tc申请空间的时候，可能出现多个tc同时向cc申请空间，而cc中又可能出现多个桶都没有空间的情况，那么就会有多执行流向pc申请span，但是pc中加的就不是桶锁了，而是对pc整体加锁。
 ![](NOTE/img_4.png)
+
+#### PC与CC的Span转换
+需要注意的是，PC传递给CC的Span是以页为单位，而CC实际使用的span是以块为单位的，因此需要进行转换。
+
+**size转page** \
+当CC的某个size的槽位空掉，会向PC发起申请，但PC管理的内存以page为单位，因此需要将size转为page，以确认从PC的哪个槽位获取span。PC实际给CC分配的内存字节数为该size单次分配的上限，因此只要计算出分配上限，除以单页字节数即可得到页数。
+```c++
+static size_t NumMovePage(size_t size) {
+    size_t n = NumMoveSize(size); // 计算该块在CC中的单次分配上限
+    size_t npage = n * size; // 计算单次分配上限的总字节数
+
+    // 这里右移实际上就是除以页大小，即单次分配上限为多少页
+    npage >>= PAGE_SHIFT;
+
+    // 这里主要考虑到单次分配总字节数小于一页的情况
+    // 此时计算出来的npage为0，强制分配一页
+    if (npage == 0) npage == 1;
+
+    return npage;
+	}
+```
+
+**连续内存转为内存块**\
+PC中，span的自由链表为空，使用页号以及页数来管理连续的未划分空间，该span传给CC后，需CC自行划分
+## 最初的分配流程
+![alt text](NOTE/image-3.png)

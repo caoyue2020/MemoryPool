@@ -10,10 +10,10 @@ using std::cout;
 using std::endl;
 using std::vector;
 
-constexpr size_t FREE_LIST_NUM = 208; //哈希表中自由链表个数/桶数
-constexpr size_t MAX_BYTES = 256*1024; //ThreadCache单次分配给线程最大字节数
-constexpr size_t PAGE_NUM = 129; //PageCash中最大的span控制的页数（这里为129是为了下标和桶能直接映射）
-
+constexpr size_t FREE_LIST_NUM = 208; // 哈希表中自由链表个数/桶数
+constexpr size_t MAX_BYTES = 256*1024; // ThreadCache单次分配给线程最大字节数
+constexpr size_t PAGE_NUM = 129; // PageCash中最大的span控制的页数（这里为129是为了下标和桶能直接映射）
+constexpr size_t PAGE_SHIFT = 13; // 一页的位数，这里一页设为8K，13位
 
 //获取obj指向的内存块中存储的指针
 inline void*& ObjNext(void* obj)
@@ -182,6 +182,21 @@ public:
         
         return num;
     }
+
+    // 块页匹配
+    static size_t NumMovePage(size_t size) {
+	    size_t n = NumMoveSize(size); // 计算该块在CC中的单次分配上限
+	    size_t npage = n * size; // 计算单次分配上限的总字节数
+
+	    // 这里右移实际上就是除以页大小，即单次分配上限为多少页
+	    npage >>= PAGE_SHIFT;
+
+	    // 这里主要考虑到单次分配总字节数小于一页的情况
+	    // 此时计算出来的npage为0，强制分配一页
+	    if (npage == 0) npage == 1;
+
+	    return npage;
+	}
 };
 
 struct Span
@@ -202,6 +217,31 @@ struct Span
 class SpanList //Span为基础元素的双向链表
 {
 public:
+    // PC用于确认当前槽位SpanList是否为空
+    // 有必要吗？
+    bool Empty() {
+        return _head->_next == _head;
+    }
+
+    // PC弹出首个非空Span
+    // 该Span只能保证非空
+    Span* PopFront() {
+        Span* front = Begin();
+        Erase(front);
+        return front;
+    }
+
+    // CC遍历槽位获取非空span时需要有链表Begin
+    Span* Begin() {
+        // 由于_head是一个哨兵节点，不存储实际数据，因此_head->next才是真正的begin
+        return _head->_next;
+    }
+    // CC遍历槽位获取非空span时需要有链表End
+    Span* End() {
+        // 通常认为end指针是指向最后节点的下一个位置，即end == nullptr
+        return _head;
+    }
+
     void Insert(Span* pos, Span* ptr)
     {
         //在Pos前面插入ptr
@@ -231,7 +271,6 @@ public:
         // 回收相关逻辑
 
     }
-
 
     SpanList()
     {
