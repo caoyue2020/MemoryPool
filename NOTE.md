@@ -6,10 +6,10 @@
 `char* _memory = nullptr; `
 
 这里不使用`void*`，将 `_memory` 定义为 `char*`，当需要移动 $n$ 个字节时，直接 `_memory += n` 即可，逻辑非常直观。
-![alt text](NOTE/ObjectPool/image.png)
+![alt text](ObjectPool/image.png)
 
 ### 如何分配内存
-```cpp
+```c++
 //将原本内存池首地址给obj，并将其转为T*指针
 //即告诉编译器起始地址为_memory
 //长度为sizeof(T)
@@ -18,11 +18,11 @@ _memory += sizeof(T); //内存池指针移动
 _remanenetBytes -= sizeof(T);//减少对应可用内存字节
 ```
 指针的存储的是内存块的首地址，而指针的类型决定了编译器从首地址往后读取多少个字节。
-![alt text](NOTE/ObjectPool/image-2.png)
+![alt text](ObjectPool/image-2.png)
 
 
 ### 自由链表回收内存
-```cpp
+```c++
 void Delete(T* obj)
     { 
         /*        
@@ -35,10 +35,10 @@ void Delete(T* obj)
         _freelist = obj;
     }
 ```
-![alt text](NOTE/ObjectPool/image-1.png)
+![alt text](ObjectPool/image-1.png)
 
 ### 从自由链表分配内存
-```cpp
+```c++
 if(_freelist)
 {
     //_freelist不为空则从这里那内存
@@ -50,10 +50,10 @@ if(_freelist)
     _freelist = next;
 }
 ```
-![alt text](NOTE/ObjectPool/image-3.png)
+![alt text](ObjectPool/image-3.png)
 
 ### 定位new
-```CPP
+```c++
 //除了分配空间，还得初始化
 //定位new。详情见MD
 new(obj)T;
@@ -70,7 +70,7 @@ new(obj)T;
 ### 关于内存池（大内存块的释放）
 
 
-```cpp
+```c++
 ~ObjectPool()
 {
     for (char* ptr : _M)
@@ -85,7 +85,7 @@ new(obj)T;
 
 ## Common
 ### SizeClass
-```cpp
+```c++
 线程申请size的对齐规则：整体控制在最多10%左右的内碎片浪费
 size范围				对齐数				对应哈希桶下标范围
 [1,128]					8B 对齐      		freelist[0,16)
@@ -98,7 +98,7 @@ size范围				对齐数				对应哈希桶下标范围
 实际上这里的对齐数可以理解为步长
 在[1,128]这个分为内，每个桶的内存块大小为8，16，24……，按8B增长（因为要入指针，因此最小的是8B）
 而在[128_1,1024]这个范围内，每个桶的内存块大小为128+16，128+32，128+48……，按16B增长
-![alt text](NOTE/Common/image.png)
+![alt text](Common/image.png)
 
 
 ## ThreadCache
@@ -107,13 +107,13 @@ size范围				对齐数				对应哈希桶下标范围
 答案是有的，就是TLS。
 线程局部存储（TLS），是一种变量的存储方法，这个变量在它所在的线程内是全局可访问的，
 但是不能被其他线程访问到，这样就保持了数据的线程独立性，避免了一些加锁操作，控制成本更低。
-```cpp
+```c++
 static thread_local ThreadCache* pTLSThreadCache = nullptr;
 ```
 
 ### FetchFromCentralCache
 
-```cpp
+```c++
 void* ThreadCache::Allocate(size_t size)
 {
     assert(size <= MAX_BYTES);
@@ -135,7 +135,7 @@ void* ThreadCache::Allocate(size_t size)
 }
 ```
 需要注意，TC向CC申请空间时，除了给TC自身申请空间，还要返回线程申请的空间，因此需要将span返回的连续内存中，挑出第一块给线程，剩余的给TC自身
-```cpp 
+```c++ 
 //FetchFromCentralCache::
     assert(actualNum >= 1);
 
@@ -148,11 +148,11 @@ void* ThreadCache::Allocate(size_t size)
         // _freeLists[index].Pu
     }
 ```
-![alt text](NOTE/image.png)
+![alt text](image.png)
 
 ## CenteralCache
 ### CenterCache数据结构
-![alt text](NOTE/CentercCache/image.png)
+![alt text](CentercCache/image.png)
 
 **CC与TC的相同点**
 1. CC也是哈希桶，且映射规则与TC一致。这使得当TC某个桶没有空间时可以直接到CC对应小标的哈希桶拿空间
@@ -176,7 +176,7 @@ void* ThreadCache::Allocate(size_t size)
 
 
 ### 单例模式与Static
-```cpp
+```c++
 static CentralCache* GetInstance()
 {
     static CentralCache* _sInst;
@@ -191,3 +191,53 @@ static CentralCache* GetInstance()
 实际上声明静态局部变量的时候，编译器会自行插入一段“检查-创建”的代码，若变量不存在则创建，若存在则跳过创建，且整个过程是线程安全的。
 
 
+### FetchRangeObj
+```c++
+    /**
+     * CC给TC分配空间：从指定桶中选取一个非空span，将该span的自由链表给TC
+     * @param start [out] 返回的大内存块起始地址
+     * @param end [out] 返回的大内存块终止地址
+     * @param batchNum [in] TC请求的内存块数量
+     * @param size [in] size为TC需要的单块内存块字节数
+     * @return actualNum 返回CC实际提供的大小（span可用块数量可能小于TC请求的数量）
+     */
+    size_t FetchRangeObj(void*& start, void*& end, size_t batchNum, size_t size);
+```
+
+```c++
+size_t CentralCache::FetchRangeObj(void*& start, void*& end, size_t batchNum, size_t size) {
+    size_t index = SizeClass::Index(size);
+
+    // 获取一个非空的span指针，从该span的frreList上取下连续内存块，整个过程加锁
+    {
+        std::lock_guard<std::mutex> lg(_spanLists[index].mtx);
+        Span* span = getOneSpan(_spanLists[index], size);
+        assert(span);
+        assert(span->_freeList);
+
+        // 选中内存块链表
+        // 1. end 向后挪动batchNum-1个位置
+        // 2. 如果span可用的块小于batchNum，需提前结束，即Next(end)!=nullptr
+        // 3. 需要对end后移的次数计数以返回实际分配的块数量
+
+        start = end = span-> _freeList;
+        size_t actualNum = 1;
+        while (actualNum < batchNum && ObjNext(end) != nullptr) {
+            end = ObjNext(end);
+            actualNum++;
+        }
+
+
+        // 将选中的内存块链表从span的freeLsit上断开
+        // 1. span的freeList指向next(end)
+        // 2. 将next(end)设为nullptr使其与span断开连接即可
+        span->_freeList = ObjNext(end);
+        ObjNext(end) = nullptr;
+
+
+        return actualNum;
+    }
+}
+```
+
+![img.png](img.png)
