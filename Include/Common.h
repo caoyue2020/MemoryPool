@@ -13,24 +13,20 @@ using std::vector;
 constexpr size_t FREE_LIST_NUM = 208; //哈希表中自由链表个数/桶数
 constexpr size_t MAX_BYTES = 256*1024; //ThreadCache单次分配给线程最大字节数
 
-inline void*& ObjNext(void* obj) //获取obj指向的内存块中存储的指针
+//获取obj指向的内存块中存储的指针
+inline void*& ObjNext(void* obj)
 {
     return *(void**)obj;
 }
-
 
 class FreeList // ThreadCache中的自由链表
 {
 private:
     void* _freeList = nullptr; //这里用void*类型了，之前定长的时候使用char*
     
-    // 当前允许分配的最大块数，慢启动
-    // 不过为什么是FreeList管理？
-    // CC中一个槽位有多个FreeList，为什么不设计为一个槽内统一分配数量
-    // 等等，这个好像是TC内部持有的
-    // 没错是这样，每个线程的TC的每个槽位都有一个这个，这个东西限制了当前线程
-    // 申请的最大内存块数
-    // 且随着慢启动，TC某个大小的块需求越多，这个也会逐渐增加
+    // 每个线程的TC的【每个槽位】都有一个这个，这个东西限制了当前线程
+    // 申请特定大小最大内存块数
+    // 随着慢启动，TC某个大小的块需求越多，这个也会逐渐增加
     // 但显然不可能允许它一直往上加，因此有@SizeClass::NumMoveSize去计算上限
     size_t _maxSize = 1;
 
@@ -47,8 +43,6 @@ public:
         
         ObjNext(end) = _freeList;
         _freeList = start;
-        
-
     }
  
     void Push(void* obj) //回收空间
@@ -79,7 +73,6 @@ public:
         return _maxSize;
     }
 };
-
 
 //笔记见MD
 class SizeClass
@@ -190,8 +183,6 @@ public:
         return num;
     }
 };
-
-
 
 struct Span
 {

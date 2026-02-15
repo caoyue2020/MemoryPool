@@ -14,13 +14,14 @@ public:
     CentralCache& operator =(const CentralCache& copy) = delete;
 
     /**
+     * CC给TC分配空间：从指定桶中选取一个非空span，将该span的自由链表给TC
      * @param start [out] 返回的大内存块起始地址
      * @param end [out] 返回的大内存块终止地址
-     * @param n [in] TC请求的内存块数量
+     * @param batchNum [in] TC请求的内存块数量
      * @param size [in] size为TC需要的单块内存块字节数
      * @return num 返回CC实际提供的大小（span可用块数量可能小于TC请求的数量）
      */
-    size_t FetchRangeObj(void*& start, void*& end, size_t n, size_t size);
+    size_t FetchRangeObj(void*& start, void*& end, size_t batchNum, size_t size);
 
 
 private:
