@@ -66,7 +66,7 @@ Span* CentralCache::getOneSpan(SpanList &list, size_t size) {
     }
 
     // 2.2 按size划分连续内存空间
-    char* start = (char*)(span->_pageId << PAGE_NUM); // start用char*，方便后续的+=操作
+    char* start = (char*)(span->_pageId << PAGE_SHIFT); // start用char*，方便后续的+=操作
     char* end =  (char*)(start + (span->_n << PAGE_SHIFT));
 
     span->_freeList = start; // 移动到freeList

@@ -247,7 +247,7 @@ public:
 	    // 这里主要考虑到单次分配总字节数小于一页的情况
 	    // 此时计算出来的npage为0，强制分配一页
 	    if (npage == 0) {
-	        npage == 1;
+	        npage = 1;
 	    }
 
 	    return npage;

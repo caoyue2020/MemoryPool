@@ -1,7 +1,6 @@
 //
 // Created by CAO on 2026/2/15.
 //
-#pragma once
 #include "PageCache.h"
 
 
@@ -34,7 +33,7 @@ Span *PageCache::NewSpan(size_t k) {
     // 向系统申请内存
     void* ptr = SystemAlloc(PAGE_NUM-1);
     Span* bigSpan = new Span;
-    bigSpan->_pageId = (size_t)ptr >> PAGE_NUM-1; // 假设 PAGE_SHIFT 为 13
+    bigSpan->_pageId = (size_t)ptr >> PAGE_SHIFT; // 假设 PAGE_SHIFT 为 13
     bigSpan->_n = PAGE_NUM-1;
     // 将这个大 Span 挂到最大的桶里
     _spanLists[PAGE_NUM-1].PushFront(bigSpan);

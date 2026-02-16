@@ -1,6 +1,6 @@
 #include <chrono>   // C++11 高精度计时库
 #include <new>      // 必须包含，用于 placement new
-#include "./Include/ObjectPool.h"
+#include "ObjectPool.h"
 
 
 
@@ -107,12 +107,6 @@ void Benchmark()
     cout << "=========================================" << endl;
 }
 
-int main()
-{
-    // 可以多跑几次取平均值
-    Benchmark();
-    return 0;
-}
 
 
 

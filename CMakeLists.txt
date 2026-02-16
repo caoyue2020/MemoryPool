@@ -11,9 +11,13 @@ add_executable(MemoryPool
         Include/ConcurrentAlloc.h
         Include/ObjectPool.h
         Include/ThreadCache.h
-        Source/ThreadCache.cpp
-        Test.cpp
-        unitTest.cpp
-        Source/CentralCache.cpp
         Include/PageCache.h
-        Source/PageCache.cpp)
+
+        Source/ThreadCache.cpp
+        Source/CentralCache.cpp
+        Source/PageCache.cpp
+
+        test/ObjectPoolTest.cpp
+        test/unitTest.cpp
+        main.cpp
+)
