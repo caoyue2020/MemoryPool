@@ -1,0 +1,38 @@
+[
+{
+  "directory": "/Users/cao/CLionProjects/MemoryPool/build",
+  "command": "/opt/homebrew/bin/aarch64-apple-darwin24-g++-15  -I/Users/cao/CLionProjects/MemoryPool/Include -g -std=gnu++14 -arch arm64 -o CMakeFiles/MemoryPool.dir/Source/ThreadCache.cpp.o -c /Users/cao/CLionProjects/MemoryPool/Source/ThreadCache.cpp",
+  "file": "/Users/cao/CLionProjects/MemoryPool/Source/ThreadCache.cpp",
+  "output": "CMakeFiles/MemoryPool.dir/Source/ThreadCache.cpp.o"
+},
+{
+  "directory": "/Users/cao/CLionProjects/MemoryPool/build",
+  "command": "/opt/homebrew/bin/aarch64-apple-darwin24-g++-15  -I/Users/cao/CLionProjects/MemoryPool/Include -g -std=gnu++14 -arch arm64 -o CMakeFiles/MemoryPool.dir/Source/CentralCache.cpp.o -c /Users/cao/CLionProjects/MemoryPool/Source/CentralCache.cpp",
+  "file": "/Users/cao/CLionProjects/MemoryPool/Source/CentralCache.cpp",
+  "output": "CMakeFiles/MemoryPool.dir/Source/CentralCache.cpp.o"
+},
+{
+  "directory": "/Users/cao/CLionProjects/MemoryPool/build",
+  "command": "/opt/homebrew/bin/aarch64-apple-darwin24-g++-15  -I/Users/cao/CLionProjects/MemoryPool/Include -g -std=gnu++14 -arch arm64 -o CMakeFiles/MemoryPool.dir/Source/PageCache.cpp.o -c /Users/cao/CLionProjects/MemoryPool/Source/PageCache.cpp",
+  "file": "/Users/cao/CLionProjects/MemoryPool/Source/PageCache.cpp",
+  "output": "CMakeFiles/MemoryPool.dir/Source/PageCache.cpp.o"
+},
+{
+  "directory": "/Users/cao/CLionProjects/MemoryPool/build",
+  "command": "/opt/homebrew/bin/aarch64-apple-darwin24-g++-15  -I/Users/cao/CLionProjects/MemoryPool/Include -g -std=gnu++14 -arch arm64 -o CMakeFiles/MemoryPool.dir/test/ObjectPoolTest.cpp.o -c /Users/cao/CLionProjects/MemoryPool/test/ObjectPoolTest.cpp",
+  "file": "/Users/cao/CLionProjects/MemoryPool/test/ObjectPoolTest.cpp",
+  "output": "CMakeFiles/MemoryPool.dir/test/ObjectPoolTest.cpp.o"
+},
+{
+  "directory": "/Users/cao/CLionProjects/MemoryPool/build",
+  "command": "/opt/homebrew/bin/aarch64-apple-darwin24-g++-15  -I/Users/cao/CLionProjects/MemoryPool/Include -g -std=gnu++14 -arch arm64 -o CMakeFiles/MemoryPool.dir/test/unitTest.cpp.o -c /Users/cao/CLionProjects/MemoryPool/test/unitTest.cpp",
+  "file": "/Users/cao/CLionProjects/MemoryPool/test/unitTest.cpp",
+  "output": "CMakeFiles/MemoryPool.dir/test/unitTest.cpp.o"
+},
+{
+  "directory": "/Users/cao/CLionProjects/MemoryPool/build",
+  "command": "/opt/homebrew/bin/aarch64-apple-darwin24-g++-15  -I/Users/cao/CLionProjects/MemoryPool/Include -g -std=gnu++14 -arch arm64 -o CMakeFiles/MemoryPool.dir/main.cpp.o -c /Users/cao/CLionProjects/MemoryPool/main.cpp",
+  "file": "/Users/cao/CLionProjects/MemoryPool/main.cpp",
+  "output": "CMakeFiles/MemoryPool.dir/main.cpp.o"
+}
+]

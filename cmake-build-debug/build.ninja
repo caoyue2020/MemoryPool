@@ -97,6 +97,14 @@ build CMakeFiles/MemoryPool.dir/main.cpp.o: CXX_COMPILER__MemoryPool_unscanned_D
   OBJECT_DIR = CMakeFiles/MemoryPool.dir
   OBJECT_FILE_DIR = CMakeFiles/MemoryPool.dir
 
+build CMakeFiles/MemoryPool.dir/Source/PrintDebug.cpp.o: CXX_COMPILER__MemoryPool_unscanned_Debug /Users/cao/CLionProjects/MemoryPool/Source/PrintDebug.cpp || cmake_object_order_depends_target_MemoryPool
+  CONFIG = Debug
+  DEP_FILE = CMakeFiles/MemoryPool.dir/Source/PrintDebug.cpp.o.d
+  FLAGS = -g -arch arm64 -fcolor-diagnostics
+  INCLUDES = -I/Users/cao/CLionProjects/MemoryPool/Include
+  OBJECT_DIR = CMakeFiles/MemoryPool.dir
+  OBJECT_FILE_DIR = CMakeFiles/MemoryPool.dir/Source
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target MemoryPool
@@ -105,7 +113,7 @@ build CMakeFiles/MemoryPool.dir/main.cpp.o: CXX_COMPILER__MemoryPool_unscanned_D
 #############################################
 # Link the executable MemoryPool
 
-build MemoryPool: CXX_EXECUTABLE_LINKER__MemoryPool_Debug CMakeFiles/MemoryPool.dir/Source/ThreadCache.cpp.o CMakeFiles/MemoryPool.dir/Source/CentralCache.cpp.o CMakeFiles/MemoryPool.dir/Source/PageCache.cpp.o CMakeFiles/MemoryPool.dir/test/ObjectPoolTest.cpp.o CMakeFiles/MemoryPool.dir/test/unitTest.cpp.o CMakeFiles/MemoryPool.dir/main.cpp.o
+build MemoryPool: CXX_EXECUTABLE_LINKER__MemoryPool_Debug CMakeFiles/MemoryPool.dir/Source/ThreadCache.cpp.o CMakeFiles/MemoryPool.dir/Source/CentralCache.cpp.o CMakeFiles/MemoryPool.dir/Source/PageCache.cpp.o CMakeFiles/MemoryPool.dir/test/ObjectPoolTest.cpp.o CMakeFiles/MemoryPool.dir/test/unitTest.cpp.o CMakeFiles/MemoryPool.dir/main.cpp.o CMakeFiles/MemoryPool.dir/Source/PrintDebug.cpp.o
   CONFIG = Debug
   FLAGS = -g -arch arm64
   LINK_FLAGS = -Wl,-search_paths_first -Wl,-headerpad_max_install_names

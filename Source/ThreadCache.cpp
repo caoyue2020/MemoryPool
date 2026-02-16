@@ -55,7 +55,7 @@ void* ThreadCache::FetchFromCentralCache(size_t index, size_t alignSize)
 
     // 注意这里要先调用GetInstance获取CC指针
     //TODO:为什么这里传入alignSize而不是index？index不是更方便？
-    size_t actualNum = CentralCache::GetInstance() ->
+    size_t actualNum = CentralCache::getInstance() ->
                         FetchRangeObj(start, end, batchNum, alignSize);
 
     assert(actualNum >= 1);

@@ -1,0 +1,111 @@
+{
+	"kind" : "toolchains",
+	"toolchains" : 
+	[
+		{
+			"compiler" : 
+			{
+				"id" : "GNU",
+				"implicit" : 
+				{
+					"includeDirectories" : 
+					[
+						"/opt/homebrew/Cellar/gcc/15.2.0/lib/gcc/current/gcc/aarch64-apple-darwin24/15/include",
+						"/opt/homebrew/Cellar/gcc/15.2.0/lib/gcc/current/gcc/aarch64-apple-darwin24/15/include-fixed",
+						"/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include",
+						"/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/System/Library/Frameworks"
+					],
+					"linkDirectories" : 
+					[
+						"/opt/homebrew/Cellar/gcc/15.2.0/lib/gcc/current/gcc/aarch64-apple-darwin24/15",
+						"/opt/homebrew/Cellar/gcc/15.2.0/lib/gcc/current/gcc",
+						"/opt/homebrew/Cellar/gcc/15.2.0/lib/gcc/current",
+						"/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/lib",
+						"/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/lib/swift"
+					],
+					"linkFrameworkDirectories" : 
+					[
+						"/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/System/Library/Frameworks"
+					],
+					"linkLibraries" : 
+					[
+						"emutls_w",
+						"heapt_w",
+						"gcc"
+					]
+				},
+				"path" : "/opt/homebrew/bin/aarch64-apple-darwin24-gcc-15",
+				"version" : "15.2.0"
+			},
+			"language" : "C",
+			"sourceFileExtensions" : 
+			[
+				"c",
+				"m"
+			]
+		},
+		{
+			"compiler" : 
+			{
+				"id" : "GNU",
+				"implicit" : 
+				{
+					"includeDirectories" : 
+					[
+						"/opt/homebrew/Cellar/gcc/15.2.0/include/c++/15",
+						"/opt/homebrew/Cellar/gcc/15.2.0/include/c++/15/aarch64-apple-darwin24",
+						"/opt/homebrew/Cellar/gcc/15.2.0/include/c++/15/backward",
+						"/opt/homebrew/Cellar/gcc/15.2.0/lib/gcc/current/gcc/aarch64-apple-darwin24/15/include",
+						"/opt/homebrew/Cellar/gcc/15.2.0/lib/gcc/current/gcc/aarch64-apple-darwin24/15/include-fixed",
+						"/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include",
+						"/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/System/Library/Frameworks"
+					],
+					"linkDirectories" : 
+					[
+						"/opt/homebrew/Cellar/gcc/15.2.0/lib/gcc/current/gcc/aarch64-apple-darwin24/15",
+						"/opt/homebrew/Cellar/gcc/15.2.0/lib/gcc/current/gcc",
+						"/opt/homebrew/Cellar/gcc/15.2.0/lib/gcc/current",
+						"/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/lib",
+						"/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/lib/swift"
+					],
+					"linkFrameworkDirectories" : 
+					[
+						"/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/System/Library/Frameworks"
+					],
+					"linkLibraries" : 
+					[
+						"emutls_w",
+						"heapt_w",
+						"stdc++",
+						"gcc"
+					]
+				},
+				"path" : "/opt/homebrew/bin/aarch64-apple-darwin24-g++-15",
+				"version" : "15.2.0"
+			},
+			"language" : "CXX",
+			"sourceFileExtensions" : 
+			[
+				"C",
+				"M",
+				"c++",
+				"cc",
+				"cpp",
+				"cxx",
+				"mm",
+				"mpp",
+				"CPP",
+				"ixx",
+				"cppm",
+				"ccm",
+				"cxxm",
+				"c++m"
+			]
+		}
+	],
+	"version" : 
+	{
+		"major" : 1,
+		"minor" : 0
+	}
+}

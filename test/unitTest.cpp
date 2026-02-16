@@ -10,8 +10,8 @@ void ConcurrentAllocTest() {
     void* ptr4 = ConcurrentAlloc(6);
     void* ptr5 = ConcurrentAlloc(3);
 
-    pTLSThreadCache->PrintDebugInfo();
-    CentralCache::GetInstance()->PrintDebugInfo();
+    ThreadCache::getInstance()->PrintDebugInfo();
+    CentralCache::getInstance()->PrintDebugInfo();
     PageCache::getInstance()->PrintDebugInfo();
 
     cout << ptr1 << endl;

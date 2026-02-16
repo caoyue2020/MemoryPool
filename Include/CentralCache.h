@@ -5,7 +5,7 @@ class CentralCache
 {
 public:
     // 单例模式，局部静态变量模式
-    static CentralCache* GetInstance()
+    static CentralCache* getInstance()
     {
         static CentralCache _sInst;
         return &_sInst;
@@ -28,6 +28,7 @@ public:
     // PC锁
     Span* getOneSpan(SpanList& list, size_t size);
 
+    //DeBug:打印桶中非空span数量，打印非空span内存块数量
     void PrintDebugInfo() {
         std::cout << "========== CentralCache Info =========" << std::endl;
         for (size_t i = 0; i < FREE_LIST_NUM; ++i) {

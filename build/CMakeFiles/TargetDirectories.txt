@@ -1,0 +1,3 @@
+/Users/cao/CLionProjects/MemoryPool/build/CMakeFiles/MemoryPool.dir
+/Users/cao/CLionProjects/MemoryPool/build/CMakeFiles/edit_cache.dir
+/Users/cao/CLionProjects/MemoryPool/build/CMakeFiles/rebuild_cache.dir

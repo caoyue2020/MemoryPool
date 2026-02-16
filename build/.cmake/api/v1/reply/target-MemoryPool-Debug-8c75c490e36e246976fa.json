@@ -36,13 +36,18 @@
 			}
 		]
 	},
+	"codemodelVersion" : 
+	{
+		"major" : 2,
+		"minor" : 9
+	},
 	"compileGroups" : 
 	[
 		{
 			"compileCommandFragments" : 
 			[
 				{
-					"fragment" : "-g -arch arm64 -fcolor-diagnostics"
+					"fragment" : "-g -std=gnu++14 -arch arm64"
 				}
 			],
 			"includes" : 
