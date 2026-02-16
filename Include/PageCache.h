@@ -23,6 +23,23 @@ public:
      */
     Span* NewSpan(size_t k);
 
+
+    //DeBug:每个桶中span的数量
+    void PrintDebugInfo() {
+        std::cout << "=========== PageCache Info ===========" << std::endl;
+        // PageCache 的锁是把大锁 (_pageMtx)，通常在外部控制，或者这里为了调试只读一下
+        // 注意：PageCache 的 spanLists 数组本身没有独立的锁，而是由 _pageMtx 保护
+
+        // 这种调试打印在多线程高并发下通常需要小心，简单起见我们假设调试时没竞争
+        for (size_t i = 0; i < PAGE_NUM; ++i) {
+            if (!_spanLists[i].Empty()) {
+                std::cout << "Bucket " << i << " (Pages): "
+                          << _spanLists[i].Size() << " spans" << std::endl;
+            }
+        }
+        std::cout << "======================================" << std::endl;
+    }
+
 private:
     PageCache() = default;
     SpanList _spanLists[PAGE_NUM];

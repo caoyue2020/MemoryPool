@@ -125,6 +125,19 @@ public:
     {
         return _maxSize;
     }
+
+    // DeBug：自由链表长度
+    size_t Size()
+    {
+        size_t size = 0;
+        void* cur = _freeList;
+        while (cur)
+        {
+            ++size;
+            cur = ObjNext(cur); // 移动到下一个节点
+        }
+        return size;
+    }
 };
 
 //笔记见MD
@@ -328,6 +341,19 @@ public:
         //TODO:这里并不删除pos节点，而是等待后续回收
         // 回收相关逻辑
 
+    }
+
+    //DeBug：链表长度
+    size_t Size()
+    {
+        size_t count = 0;
+        Span* cur = Begin();
+        while (cur != End())
+        {
+            count++;
+            cur = cur->_next;
+        }
+        return count;
     }
 
     SpanList()

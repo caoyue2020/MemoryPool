@@ -1,4 +1,7 @@
+#include "CentralCache.h"
 #include "ConcurrentAlloc.h"
+#include "PageCache.h"
+#include "ThreadCache.h"
 
 void ConcurrentAllocTest() {
     void* ptr1 = ConcurrentAlloc(5);
@@ -6,6 +9,10 @@ void ConcurrentAllocTest() {
     void* ptr3 = ConcurrentAlloc(4);
     void* ptr4 = ConcurrentAlloc(6);
     void* ptr5 = ConcurrentAlloc(3);
+
+    pTLSThreadCache->PrintDebugInfo();
+    CentralCache::GetInstance()->PrintDebugInfo();
+    PageCache::getInstance()->PrintDebugInfo();
 
     cout << ptr1 << endl;
     cout << ptr2 << endl;

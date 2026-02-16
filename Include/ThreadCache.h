@@ -12,6 +12,17 @@ public:
 
     //ThreadCache空间不够用时，向CentralCache申请空间的接口
     void* FetchFromCentralCache(size_t index, size_t alignSize);
+
+    void PrintDebugInfo() {
+        std::cout << "========== ThreadCache Info ==========" << std::endl;
+        for (size_t i = 0; i < FREE_LIST_NUM; ++i) {
+            if (!_freeLists[i].Empty()) {
+                std::cout << "Bucket " << i << ": Has "
+                << _freeLists[i].Size() << " blocks(_maxSize=" << _freeLists[i].MaxSize() << ")" << std::endl;
+            }
+        }
+        std::cout << "======================================" << std::endl;
+    }
 };
 
 static thread_local ThreadCache* pTLSThreadCache = nullptr;

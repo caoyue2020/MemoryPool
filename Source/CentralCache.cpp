@@ -3,7 +3,6 @@
 //
 
 #include "CentralCache.h"
-
 #include "PageCache.h"
 
 size_t CentralCache::FetchRangeObj(void*& start, void*& end, size_t batchNum, size_t size) {

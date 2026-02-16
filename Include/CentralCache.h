@@ -28,7 +28,39 @@ public:
     // PC锁
     Span* getOneSpan(SpanList& list, size_t size);
 
+    void PrintDebugInfo() {
+        std::cout << "========== CentralCache Info =========" << std::endl;
+        for (size_t i = 0; i < FREE_LIST_NUM; ++i) {
+            // 先判断非空，减少加锁开销
+            if (!_spanLists[i].Empty()) {
+                std::unique_lock<std::mutex> lock(_spanLists[i].mtx);
 
+                // 打印桶级别的汇总信息
+                std::cout << "Bucket " << i << ": " << _spanLists[i].Size() << " spans" << std::endl;
+
+                // 遍历当前桶中的每一个 Span
+                Span* span = _spanLists[i].Begin();
+                while (span != _spanLists[i].End()) {
+                    // --- 计算当前 Span 挂载的自由链表长度 ---
+                    size_t blockCount = 0;
+                    void* cur = span->_freeList;
+                    while (cur) {
+                        blockCount++;
+                        cur = ObjNext(cur); // 移动到下一个内存块
+                    }
+                    // ------------------------------------
+
+                    std::cout << "  -> Span [PageId:" << span->_pageId
+                              << ", Pages:" << span->_n
+                              << ", UseCount:" << span->_usecount
+                              << "] FreeBlocks: " << blockCount << std::endl;
+
+                    span = span->_next;
+                }
+            }
+        }
+        std::cout << "======================================" << std::endl;
+    }
 private:
     //私有化构造函数，禁用拷贝、直接构造
     CentralCache() = default;
