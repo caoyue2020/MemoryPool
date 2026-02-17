@@ -9,6 +9,13 @@ Span *PageCache::NewSpan(size_t k) {
 
     // ①K号桶有非空Span
     if (!_spanLists[k].Empty()) {
+
+        Span* span = _spanLists[k].PopFront();
+        // 分配出去的这些页都是
+        for (size_t i=0; i<span->_n; i++) {
+            _idSpanMap[span->_pageId + i] = span;
+        }
+
         return _spanLists[k].PopFront();
     }
 

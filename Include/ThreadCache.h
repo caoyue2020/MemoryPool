@@ -21,7 +21,7 @@ public:
     void* FetchFromCentralCache(size_t index, size_t alignSize);
 
     /**
-     * TC向CC归还空间
+     * TC向CC归还空间。条件为当TC控制的自由链表长度大于其_maxSize。
      * @param list 自由链表
      * @param size 对齐后的内存块大小
      */

@@ -15,7 +15,7 @@ public:
         return &_sInst;
     }
 
-    /* PC给CC分配一个非空Span
+    /* PC给CC分配【一个】非空Span
      * 情况1：对应槽位有非空Span
      * 情况2：对应槽位无但后续槽位有，弹出后续槽位的span并分裂
      * 返回对应的span，将另一个span挂载到正确槽位
@@ -43,4 +43,7 @@ public:
 private:
     PageCache() = default;
     SpanList _spanLists[PAGE_NUM];
+
+    // PageID和
+    std::unordered_map<size_t, Span*> _idSpanMap;
 };

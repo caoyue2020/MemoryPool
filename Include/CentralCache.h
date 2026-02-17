@@ -31,7 +31,11 @@ public:
     Span* getOneSpan(SpanList& list, size_t size);
 
     /**
-     * 回收TC弹出的内存块
+     * 回收TC弹出的内存块。注意是ToSpans，而不是ToSpan，
+     * 因为tc传回来的这些块可能不仅仅是一个span中的。
+     * 这里主要涉及如何将内存块和页号对应，换算出页号就能找出对应的span
+     * 【任意地址右移13位（除以8K），得到的就是页号】
+     * span管理的空间页范围为：[_pageID,_pageID+_n)
      * @param start 自由链表头
      * @param size 内存块大小
      */

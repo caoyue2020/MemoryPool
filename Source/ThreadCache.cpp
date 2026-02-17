@@ -26,7 +26,7 @@ void* ThreadCache::Allocate(size_t size)
 
 }
 
-//回收线程内存
+//回收线程内存。当线程释放内存时，会进一步检查TC是否要向CC释放内存
 void ThreadCache::Deallocate(void* obj, size_t size)
 {
    
