@@ -1,4 +1,6 @@
 #pragma once
+#include <valarray>
+
 #include "Common.h"
 
 class CentralCache
@@ -27,6 +29,13 @@ public:
     // 两种情况，自身有 or 需向PC申请
     // PC锁
     Span* getOneSpan(SpanList& list, size_t size);
+
+    /**
+     * 回收TC弹出的内存块
+     * @param start 自由链表头
+     * @param size 内存块大小
+     */
+    void ReleaseListToSpans(void* start, size_t size);
 
     //DeBug:打印桶中非空span数量，打印非空span内存块数量
     void PrintDebugInfo() {

@@ -89,6 +89,33 @@ private:
     size_t _size = 0; //当前自由链表长度
 
 public:
+    /**
+     * 弹出n个节点
+     * @param start 弹出的链表头
+     * @param end 弹出的链表尾
+     * @param n 弹出的长度
+     */
+    void PopRange(void* &start, void* &end, size_t n) {
+        assert(n<=_size);
+
+        // 1. 确定范围的起始点
+        start = end = _freeList;
+
+        // 2. 确定范围的结束点：end 向后移动 n-1 步
+        for (size_t i = 0; i < n - 1; ++i)
+        {
+            end = ObjNext(end);
+        }
+
+        // 3. 断开链表，更新 _freeList
+        // 让 _freeList 指向 end 的下一个节点（剩余链表的头）
+        _freeList = ObjNext(end);
+
+        // 4. 封闭弹出的链表
+        // 将 end 的 next 指针置空，使其成为一个独立的链表片段
+        ObjNext(end) = nullptr;
+    }
+
     void PushRange(void* start, void* end, size_t size)
     {
         // TC单次分配只分配桶中的一个块（Pop）
@@ -343,7 +370,7 @@ public:
         prev->_next = next;
         next->_prev = prev;
 
-        //TODO:这里并不删除pos节点，而是等待后续回收
+        //TODO:这里并不弹出pos节点，而是等待后续回收
         // 回收相关逻辑
 
     }

@@ -39,7 +39,6 @@ size_t CentralCache::FetchRangeObj(void*& start, void*& end, size_t batchNum, si
     }
 }
 
-
 Span* CentralCache::getOneSpan(SpanList &list, size_t size) {
     // 1. 遍历自身
     Span* it = list.Begin();
@@ -89,4 +88,9 @@ Span* CentralCache::getOneSpan(SpanList &list, size_t size) {
     // 4. 注意最后要返回这个span。
     // 因为要从这个span中截取一定的内存块给TC
     return span;
+}
+
+
+void CentralCache::ReleaseListToSpans(void *start, size_t size) {
+
 }
