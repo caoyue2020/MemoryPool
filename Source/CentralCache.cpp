@@ -29,8 +29,10 @@ size_t CentralCache::FetchRangeObj(void*& start, void*& end, size_t batchNum, si
 
         // 将选中的内存块链表从span的freeLsit上断开
         // 1. span的freeList指向next(end)
-        // 2. 将next(end)设为nullptr使其与span断开连接即可
+        // 2. 实际分配了多少块，span的usecount增加多少
+        // 3. 将next(end)设为nullptr使其与span断开连接即可
         span->_freeList = ObjNext(end);
+        span->_usecount += actualNum;
         ObjNext(end) = nullptr;
 
         return actualNum;

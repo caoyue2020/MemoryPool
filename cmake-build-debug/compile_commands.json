@@ -34,11 +34,5 @@
   "command": "/usr/bin/c++ -I/Users/cao/CLionProjects/MemoryPool/Include -g -arch arm64 -fcolor-diagnostics -o CMakeFiles/MemoryPool.dir/main.cpp.o -c /Users/cao/CLionProjects/MemoryPool/main.cpp",
   "file": "/Users/cao/CLionProjects/MemoryPool/main.cpp",
   "output": "/Users/cao/CLionProjects/MemoryPool/cmake-build-debug/CMakeFiles/MemoryPool.dir/main.cpp.o"
-},
-{
-  "directory": "/Users/cao/CLionProjects/MemoryPool/cmake-build-debug",
-  "command": "/usr/bin/c++ -I/Users/cao/CLionProjects/MemoryPool/Include -g -arch arm64 -fcolor-diagnostics -o CMakeFiles/MemoryPool.dir/Source/PrintDebug.cpp.o -c /Users/cao/CLionProjects/MemoryPool/Source/PrintDebug.cpp",
-  "file": "/Users/cao/CLionProjects/MemoryPool/Source/PrintDebug.cpp",
-  "output": "/Users/cao/CLionProjects/MemoryPool/cmake-build-debug/CMakeFiles/MemoryPool.dir/Source/PrintDebug.cpp.o"
 }
 ]

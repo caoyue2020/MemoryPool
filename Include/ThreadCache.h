@@ -12,11 +12,21 @@ public:
         return &pTLSThreadCache;
     }
 
-    void* Allocate(size_t size); //分配内存
-    void Deallocate(void* obj, size_t size);//回收内存
+    //TC给线程分配空间
+    void* Allocate(size_t size);
+    //TC回收线程的空间
+    void Deallocate(void* obj, size_t size);
 
-    //ThreadCache空间不够用时，向CentralCache申请空间的接口
+    //TC向CC申请空间
     void* FetchFromCentralCache(size_t index, size_t alignSize);
+
+    /**
+     * TC向CC归还空间
+     * @param list 自由链表
+     * @param size 对齐后的内存块大小
+     */
+    void ListTooLong(FreeList& list, size_t size);
+
 
     // DeBug:打印内存块数量
     void PrintDebugInfo() {
@@ -31,4 +41,3 @@ public:
     }
 };
 
-// static thread_local ThreadCache* pTLSThreadCache = nullptr;

@@ -6,10 +6,10 @@
 // 测试代码
 void Benchmark();
 void ConcurrentAllocTest();
-
+void ConcurrentAllocTest2();
 
 int main() {
     // Benchmark();
-    ConcurrentAllocTest();
+    ConcurrentAllocTest2();
 
 }

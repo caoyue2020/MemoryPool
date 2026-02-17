@@ -35,7 +35,6 @@ void ThreadCache::Deallocate(void* obj, size_t size)
     
     size_t index = SizeClass::Index(size); //找到对用桶的index
     _freeLists[index].Push(obj);
-
 }
 
 void* ThreadCache::FetchFromCentralCache(size_t index, size_t alignSize)
@@ -54,7 +53,6 @@ void* ThreadCache::FetchFromCentralCache(size_t index, size_t alignSize)
     void* end = nullptr;
 
     // 注意这里要先调用GetInstance获取CC指针
-    //TODO:为什么这里传入alignSize而不是index？index不是更方便？
     size_t actualNum = CentralCache::getInstance() ->
                         FetchRangeObj(start, end, batchNum, alignSize);
 
@@ -68,7 +66,7 @@ void* ThreadCache::FetchFromCentralCache(size_t index, size_t alignSize)
     else
     {
         // 第一个返回给线程，剩余存入TC的FreeList
-        _freeLists[index].PushRange(ObjNext(start), end);
+        _freeLists[index].PushRange(ObjNext(start), end, actualNum-1);
         return start;
     }
 }

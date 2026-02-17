@@ -75,7 +75,8 @@ inline void*& ObjNext(void* obj)
     return *(void**)obj;
 }
 
-class FreeList // ThreadCache中的自由链表
+// 自由链表
+class FreeList
 {
 private:
     void* _freeList = nullptr; //这里用void*类型了，之前定长的时候使用char*
@@ -85,9 +86,10 @@ private:
     // 随着慢启动，TC某个大小的块需求越多，这个也会逐渐增加
     // 但显然不可能允许它一直往上加，因此有@SizeClass::NumMoveSize去计算上限
     size_t _maxSize = 1;
+    size_t _size = 0; //当前自由链表长度
 
 public:
-    void PushRange(void* start, void* end)
+    void PushRange(void* start, void* end, size_t size)
     {
         // TC单次分配只分配桶中的一个块（Pop）
         // 因此触发向CC申请内存时，一定是当前桶没块了
@@ -96,6 +98,7 @@ public:
         
         ObjNext(end) = _freeList;
         _freeList = start;
+        _size += size;
     }
  
     void Push(void* obj) //回收空间
@@ -105,6 +108,7 @@ public:
         //将obj赋值给_freeList
         ObjNext(obj) = _freeList;
         _freeList = obj;
+        _size++;
     }
 
     void* Pop() //分配空间，返回内存指针
@@ -114,6 +118,7 @@ public:
         void* ptr = _freeList;
         _freeList = ObjNext(ptr);
         return ptr;
+        _size--;
     }
 
     bool Empty() //判断哈希桶是否为空
@@ -129,14 +134,14 @@ public:
     // DeBug：自由链表长度
     size_t Size()
     {
-        size_t size = 0;
-        void* cur = _freeList;
-        while (cur)
-        {
-            ++size;
-            cur = ObjNext(cur); // 移动到下一个节点
-        }
-        return size;
+        // size_t size = 0;
+        // void* cur = _freeList;
+        // while (cur)
+        // {
+        //     ++size;
+        //     cur = ObjNext(cur); // 移动到下一个节点
+        // }
+        return _size;
     }
 };
 

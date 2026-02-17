@@ -1,10 +1,16 @@
 # ninja log v6
-517	672	1771252792870673834	MemoryPool	21ac62b9c3766735
-11	517	1771252792364106361	CMakeFiles/MemoryPool.dir/test/unitTest.cpp.o	4efff226b4ba8b8
-9	764	1771252667663573683	CMakeFiles/MemoryPool.dir/Source/ThreadCache.cpp.o	ff61f3bba95ddae6
+715	859	1771254515525961283	MemoryPool	21ac62b9c3766735
+17	715	1771254514827371586	CMakeFiles/MemoryPool.dir/test/unitTest.cpp.o	4efff226b4ba8b8
+4	618	1771253492280506948	CMakeFiles/MemoryPool.dir/Source/ThreadCache.cpp.o	ff61f3bba95ddae6
 11	1066	1771251641113259466	CMakeFiles/MemoryPool.dir/test/ObjectPoolTest.cpp.o	a66493719c6ba772
-5	72	1771253079360207550	/Users/cao/CLionProjects/MemoryPool/cmake-build-debug/cmake_install.cmake	53588201eb07ab4c
-10	763	1771252667664659736	CMakeFiles/MemoryPool.dir/Source/CentralCache.cpp.o	3540d50544a3516d
-10	229	1771250575989390960	CMakeFiles/MemoryPool.dir/main.cpp.o	b9e8925aa1c4c333
-9	638	1771251775705300112	CMakeFiles/MemoryPool.dir/Source/PageCache.cpp.o	79c5510ac3b1adcd
-5	72	1771253079363647878	build.ninja	53588201eb07ab4c
+2	108	1771307192903758046	/Users/cao/CLionProjects/MemoryPool/cmake-build-debug/cmake_install.cmake	53588201eb07ab4c
+16	708	1771254514826167541	CMakeFiles/MemoryPool.dir/Source/CentralCache.cpp.o	3540d50544a3516d
+5	44	1771253840119999500	CMakeFiles/MemoryPool.dir/main.cpp.o	b9e8925aa1c4c333
+4	618	1771253492280967952	CMakeFiles/MemoryPool.dir/Source/PageCache.cpp.o	79c5510ac3b1adcd
+2	108	1771307192904326583	build.ninja	53588201eb07ab4c
+7	409	1771307344907987139	CMakeFiles/MemoryPool.dir/Source/ThreadCache.cpp.o	ff61f3bba95ddae6
+8	409	1771307344908571261	CMakeFiles/MemoryPool.dir/Source/PageCache.cpp.o	79c5510ac3b1adcd
+8	411	1771307344908444970	CMakeFiles/MemoryPool.dir/Source/CentralCache.cpp.o	3540d50544a3516d
+8	415	1771307344909006341	CMakeFiles/MemoryPool.dir/test/unitTest.cpp.o	4efff226b4ba8b8
+8	430	1771307344908691677	CMakeFiles/MemoryPool.dir/test/ObjectPoolTest.cpp.o	a66493719c6ba772
+430	516	1771307345330616554	MemoryPool	21ac62b9c3766735

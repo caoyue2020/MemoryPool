@@ -20,3 +20,22 @@ void ConcurrentAllocTest() {
     cout << ptr4 << endl;
     cout << ptr5 << endl;
 }
+
+void ConcurrentAllocTest2() {
+    for (int i=0 ; i<1024; i++) {
+        void* ptr = ConcurrentAlloc(5);
+        cout << ptr << endl;
+    }
+    cout << " -------Before--------" << endl;
+    ThreadCache::getInstance()->PrintDebugInfo();
+    CentralCache::getInstance()->PrintDebugInfo();
+    PageCache::getInstance()->PrintDebugInfo();
+
+    void * ptr = ConcurrentAlloc(3);
+
+    cout << " -------After--------" << endl;
+    ThreadCache::getInstance()->PrintDebugInfo();
+    CentralCache::getInstance()->PrintDebugInfo();
+    PageCache::getInstance()->PrintDebugInfo();
+    cout << " -------END--------" << endl;
+}
