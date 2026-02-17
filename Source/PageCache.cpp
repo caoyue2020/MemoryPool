@@ -120,4 +120,11 @@ void PageCache::ReleaseSpanToPageCache(Span *span) {
         _spanLists[rightSpan->_n].Erase(rightSpan);// 在对应桶中删除
         delete rightSpan; // 删除对象
     }
+
+    // 合并完成
+    _spanLists[span->_n].PushFront(span);
+    span->_isUse = false; // 此时该span才算是彻底回到PC的管辖
+    // 修改映射
+    _idSpanMap[span->_pageId] = span;
+    _idSpanMap[span->_pageId + span->_n -1] = span;
 }

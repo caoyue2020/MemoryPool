@@ -3,7 +3,7 @@
 
 
 /**
- * @param 线程需求的字节数
+ * @param size 线程需求的字节数
  * @return void* 内存块指针
  */
 void* ThreadCache::Allocate(size_t size)

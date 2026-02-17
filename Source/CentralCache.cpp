@@ -104,6 +104,7 @@ void CentralCache::ReleaseListToSpans(void *start, size_t size) {
         std::unique_lock<std::mutex> CClg(_spanLists[index].mtx);
 
         // 循环操作弹出链表的每一个block
+        // TODO:这一块的性能应该可以优化一下
         while (start) {
             void* next = ObjNext(start);
             // 1. 找到对应的span
@@ -118,7 +119,7 @@ void CentralCache::ReleaseListToSpans(void *start, size_t size) {
             if (span->_usecount == 0) {//等于0说明span管理的页空间的所有块均被释放
                 // 将span从spanList中断开
                 _spanLists[index].Erase(span);
-                // 清楚span的指针，PC回收span只在意span的pageID和pageNum
+                // 清除span的指针，PC回收span只在意span的pageID和pageNum
                 span->_freeList = nullptr;
                 span->_next = nullptr;
                 span->_prev = nullptr;

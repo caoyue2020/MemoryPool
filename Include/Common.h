@@ -93,7 +93,7 @@ public:
      * 弹出n个节点
      * @param start 弹出的链表头
      * @param end 弹出的链表尾
-     * @param n 弹出的长度
+     * @param n 弹出的长度为桶的maxSize
      */
     void PopRange(void* &start, void* &end, size_t n) {
         assert(n<=_size);
@@ -102,30 +102,30 @@ public:
         start = end = _freeList;
 
         // 2. 确定范围的结束点：end 向后移动 n-1 步
-        for (size_t i = 0; i < n - 1; ++i)
-        {
+        for (size_t i = 0; i < n - 1; ++i){
             end = ObjNext(end);
         }
 
         // 3. 断开链表，更新 _freeList
         // 让 _freeList 指向 end 的下一个节点（剩余链表的头）
         _freeList = ObjNext(end);
+        _size -= n;
 
         // 4. 封闭弹出的链表
         // 将 end 的 next 指针置空，使其成为一个独立的链表片段
         ObjNext(end) = nullptr;
     }
 
-    void PushRange(void* start, void* end, size_t size)
+    void PushRange(void* start, void* end, size_t actualNum)
     {
         // TC单次分配只分配桶中的一个块（Pop）
         // 因此触发向CC申请内存时，一定是当前桶没块了
         // 即_freeList = nullptr?
-        assert(_freeList == nullptr);
+        // assert(_freeList == nullptr);
         
         ObjNext(end) = _freeList;
         _freeList = start;
-        _size += size;
+        _size += actualNum;
     }
  
     void Push(void* obj) //回收空间
@@ -144,8 +144,8 @@ public:
         //将_freeList赋值为它指向的内存块中的指针
         void* ptr = _freeList;
         _freeList = ObjNext(ptr);
-        return ptr;
         _size--;
+        return ptr;
     }
 
     bool Empty() //判断哈希桶是否为空

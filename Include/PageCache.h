@@ -34,7 +34,7 @@ public:
         // 注意：PageCache 的 spanLists 数组本身没有独立的锁，而是由 _pageMtx 保护
 
         // 这种调试打印在多线程高并发下通常需要小心，简单起见我们假设调试时没竞争
-        for (size_t i = 0; i < PAGE_NUM; ++i) {
+        for (size_t i = 1; i < PAGE_NUM; ++i) {
             if (!_spanLists[i].Empty()) {
                 std::cout << "Bucket " << i << " (Pages): "
                           << _spanLists[i].Size() << " spans" << std::endl;
