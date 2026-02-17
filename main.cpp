@@ -4,22 +4,15 @@
 #include "CentralCache.h"
 #include "PageCache.h"
 #include "ThreadCache.h"
+#include "./test/unitTest.h"
 
-
-// 测试代码
-void Benchmark();
-void ConcurrentAllocTest();
-void ConcurrentAllocTest2();
-void TestConcurrentFree1();
-void MultiThreadAlloc1();
-void MultiThreadAlloc2();
 
 int main() {
-    // Benchmark();
-    // ConcurrentAllocTest2();
     MultiThreadAlloc1();
     MultiThreadAlloc2();
     ThreadCache::getInstance()->PrintDebugInfo();
     CentralCache::getInstance()->PrintDebugInfo();
     PageCache::getInstance()->PrintDebugInfo();
+
+    //TODO:单次超过256KB的申请？
 }

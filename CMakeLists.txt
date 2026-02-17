@@ -19,5 +19,7 @@ add_executable(MemoryPool
 
         test/ObjectPoolTest.cpp
         test/unitTest.cpp
+        test/unitTest.h
+
         main.cpp
 )
