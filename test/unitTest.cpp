@@ -46,16 +46,25 @@ void TestConcurrentFree1() {
     void* ptr3 = ConcurrentAlloc(4);
     void* ptr4 = ConcurrentAlloc(6);
     void* ptr5 = ConcurrentAlloc(3);
-    void* ptr6 = ConcurrentAlloc(3);
-    void* ptr7 = ConcurrentAlloc(3);
+    // void* ptr6 = ConcurrentAlloc(3);
+    // void* ptr7 = ConcurrentAlloc(3);
 
+    ThreadCache::getInstance()->PrintDebugInfo();
+    CentralCache::getInstance()->PrintDebugInfo();
+    PageCache::getInstance()->PrintDebugInfo();
+
+    cout << "" <<endl;
+    cout << endl;
+    cout << endl;
     ConcurrentFree(ptr1, 5);
     ConcurrentFree(ptr2, 8);
     ConcurrentFree(ptr3, 4);
     ConcurrentFree(ptr4, 6);
     ConcurrentFree(ptr5, 3);
-    ConcurrentFree(ptr6, 2);
-    ConcurrentFree(ptr7, 1);
+    // ConcurrentFree(ptr6, 3);
+    // ConcurrentFree(ptr7, 3);
 
-
+    ThreadCache::getInstance()->PrintDebugInfo();
+    CentralCache::getInstance()->PrintDebugInfo();
+    PageCache::getInstance()->PrintDebugInfo();
 }

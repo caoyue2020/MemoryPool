@@ -17,11 +17,18 @@ public:
     //TC回收线程的空间
     void Deallocate(void* obj, size_t size);
 
-    //TC向CC申请空间
+    /**
+     * TC桶向CC申请空间 ，申请的块数量由maxSize和人为设定上限取低
+     * 但CC实际不一定能分配这么多
+     * @param index 桶下表
+     * @param alignSize 对齐后的块大小
+     * @return 块链的头指针
+     */
     void* FetchFromCentralCache(size_t index, size_t alignSize);
 
     /**
-     * TC向CC归还空间。条件为当TC控制的自由链表长度大于其_maxSize。
+     * 当TC桶内自由链表长度大于其_maxSize。则会调用该函数
+     * 弹出_maxSize个内存块
      * @param list 自由链表
      * @param size 对齐后的内存块大小
      */

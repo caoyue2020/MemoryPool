@@ -36,6 +36,7 @@ void ThreadCache::Deallocate(void* obj, size_t size)
     size_t index = SizeClass::Index(size); //找到对用桶的index
     _freeLists[index].Push(obj);
 
+    // 当TC桶内的块数量大于桶的MaxSize，则释放MaxSize个内存块给CC
     if (_freeLists[index].Size() >= _freeLists[index].MaxSize()) {
         ListTooLong(_freeLists[index], size);
     }
@@ -45,6 +46,7 @@ void ThreadCache::Deallocate(void* obj, size_t size)
 void ThreadCache::ListTooLong(FreeList &list, size_t size) {
     void* start = nullptr;
     void* end = nullptr;
+    // 弹出数量为MaxSize
     list.PopRange(start, end, list.MaxSize());
     // 归还空间
     CentralCache::getInstance()->ReleaseListToSpans(start, size);
