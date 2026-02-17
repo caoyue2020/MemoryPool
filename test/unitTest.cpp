@@ -39,3 +39,23 @@ void ConcurrentAllocTest2() {
     PageCache::getInstance()->PrintDebugInfo();
     cout << " -------END--------" << endl;
 }
+
+void TestConcurrentFree1() {
+    void* ptr1 = ConcurrentAlloc(5);
+    void* ptr2 = ConcurrentAlloc(8);
+    void* ptr3 = ConcurrentAlloc(4);
+    void* ptr4 = ConcurrentAlloc(6);
+    void* ptr5 = ConcurrentAlloc(3);
+    void* ptr6 = ConcurrentAlloc(3);
+    void* ptr7 = ConcurrentAlloc(3);
+
+    ConcurrentFree(ptr1, 5);
+    ConcurrentFree(ptr2, 8);
+    ConcurrentFree(ptr3, 4);
+    ConcurrentFree(ptr4, 6);
+    ConcurrentFree(ptr5, 3);
+    ConcurrentFree(ptr6, 2);
+    ConcurrentFree(ptr7, 1);
+
+
+}

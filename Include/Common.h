@@ -2,8 +2,8 @@
 #include<assert.h>
 #include<iostream>
 #include<vector>
-#include<thread>
 #include<mutex>
+
 
 
 using std::cout;
@@ -301,16 +301,17 @@ public:
 
 struct Span
 {
-    /*TODO:这里可能有个小问题
-    64位下，假设一页为8kb，需共有2^64/2^13=2^51这么多的页数
-    */
+    //
     size_t _pageId; //页号
     size_t _n = 0; //页数量
 
+    // 用于判断span在PC还是在CC。只有当_isUse为True时，该span才算彻底脱离
+    bool _isUse = false;
+
+    // Span只有在CC中才会使用以下成员变量
     Span* _next = nullptr; // 指向下一个span
     Span* _prev = nullptr; // 指向上一个span
-
-    void* _freeList = nullptr; //span下挂载的内存块链表指针
+    void* _freeList = nullptr; // span下挂载的内存块链表指针
     size_t _usecount = 0; //内存块使用计数， ==0 说明所有块都还回来了
 };
 

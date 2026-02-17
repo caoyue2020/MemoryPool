@@ -7,9 +7,10 @@
 void Benchmark();
 void ConcurrentAllocTest();
 void ConcurrentAllocTest2();
+void TestConcurrentFree1();
 
 int main() {
     // Benchmark();
-    ConcurrentAllocTest2();
-
+    // ConcurrentAllocTest2();
+    TestConcurrentFree1();
 }

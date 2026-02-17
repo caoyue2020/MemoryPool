@@ -4,6 +4,7 @@
 
 #pragma once
 #include "Common.h"
+#include <unordered_map>
 
 class PageCache {
 public:
@@ -15,14 +16,16 @@ public:
         return &_sInst;
     }
 
-    /* PC给CC分配【一个】非空Span
-     * 情况1：对应槽位有非空Span
-     * 情况2：对应槽位无但后续槽位有，弹出后续槽位的span并分裂
-     * 返回对应的span，将另一个span挂载到正确槽位
-     * 情况3：所有槽位均无，内存申请一个最大槽位的Span，后续同2
-     */
+    // 从PC的第K个桶弹出一个控制K页空间的span
+    // 在这个过程中还要对Span的页号和地址进行映射
     Span* NewSpan(size_t k);
 
+    // 通过块地址找到所属的span
+    Span* MapObjetcToSpan(void* obj);
+
+    // 管理CC释放的span，合并span前后空间
+    // 整个过程需要加锁，因为Span的状态不能发生变化
+    void ReleaseSpanToPageCache(Span* span);
 
     //DeBug:每个桶中span的数量
     void PrintDebugInfo() {
@@ -44,6 +47,8 @@ private:
     PageCache() = default;
     SpanList _spanLists[PAGE_NUM];
 
-    // PageID和
+    // PageID和span地址的映射关系
+    // 块地址右移13位可得当前块的页号，
+    // 再通过这个哈希表可以直接得到该块所属的span地址
     std::unordered_map<size_t, Span*> _idSpanMap;
 };
