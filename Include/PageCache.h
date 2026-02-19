@@ -16,11 +16,21 @@ public:
         return &_sInst;
     }
 
-    // 从PC的第K个桶弹出一个控制K页空间的span
-    // 在这个过程中还要对Span的页号和地址进行映射
+
+
+    /**
+     * 从PC的第K个桶弹出一个控制K页空间的span
+     * 在这个过程中还要对Span的页号和地址进行映射
+     * @param k 弹出的span控制的空间页数
+     * @return span指针
+     */
     Span* NewSpan(size_t k);
 
-    // 通过块地址找到所属的span
+    /**
+     * 内存地址到span的映射
+     * @param obj 内存块指针
+     * @return span指针
+     */
     Span* MapObjetcToSpan(void* obj);
 
     // 管理CC释放的span，合并span前后空间

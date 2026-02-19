@@ -78,6 +78,5 @@ public:
        {
             free(ptr);
        }
-        
     }
 };

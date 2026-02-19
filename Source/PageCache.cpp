@@ -36,7 +36,6 @@ Span *PageCache::NewSpan(size_t k) {
             nSpan->_pageId += k; // nSpan的pageId后移K
             nSpan->_n -= k;
             // 在n-k桶插入，返回另一个
-            // TODO:这里的i-k有没有可能为0？
             _spanLists[i-k].PushFront(nSpan);
             // 记录nSpan的地址与页号的映射关系
             // 在PC中，只需要记录第一页和最后一页的映射即可

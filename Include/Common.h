@@ -206,8 +206,8 @@ public:
 			return _RoundUp(size, 8 * 1024);
 		}
 		else
-		{ 
-            return -1;
+		{ //单次申请大于256KB，直接按照页对齐
+		    return _RoundUp(size, 1<<PAGE_SHIFT);
 		}
 	}
 
