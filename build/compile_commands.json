@@ -34,5 +34,11 @@
   "command": "/opt/homebrew/bin/aarch64-apple-darwin24-g++-15  -I/Users/cao/CLionProjects/MemoryPool/Include -g -std=gnu++14 -arch arm64 -o CMakeFiles/MemoryPool.dir/main.cpp.o -c /Users/cao/CLionProjects/MemoryPool/main.cpp",
   "file": "/Users/cao/CLionProjects/MemoryPool/main.cpp",
   "output": "CMakeFiles/MemoryPool.dir/main.cpp.o"
+},
+{
+  "directory": "/Users/cao/CLionProjects/MemoryPool/build",
+  "command": "/opt/homebrew/bin/aarch64-apple-darwin24-g++-15  -I/Users/cao/CLionProjects/MemoryPool/Include -g -std=gnu++14 -arch arm64 -o CMakeFiles/MemoryPool.dir/test/benchmark.cpp.o -c /Users/cao/CLionProjects/MemoryPool/test/benchmark.cpp",
+  "file": "/Users/cao/CLionProjects/MemoryPool/test/benchmark.cpp",
+  "output": "CMakeFiles/MemoryPool.dir/test/benchmark.cpp.o"
 }
 ]

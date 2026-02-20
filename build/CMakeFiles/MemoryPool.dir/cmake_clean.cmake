@@ -9,6 +9,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/MemoryPool.dir/main.cpp.o.d"
   "CMakeFiles/MemoryPool.dir/test/ObjectPoolTest.cpp.o"
   "CMakeFiles/MemoryPool.dir/test/ObjectPoolTest.cpp.o.d"
+  "CMakeFiles/MemoryPool.dir/test/benchmark.cpp.o"
+  "CMakeFiles/MemoryPool.dir/test/benchmark.cpp.o.d"
   "CMakeFiles/MemoryPool.dir/test/unitTest.cpp.o"
   "CMakeFiles/MemoryPool.dir/test/unitTest.cpp.o.d"
   "MemoryPool"

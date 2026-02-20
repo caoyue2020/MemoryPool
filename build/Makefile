@@ -256,6 +256,30 @@ test/ObjectPoolTest.cpp.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/MemoryPool.dir/build.make CMakeFiles/MemoryPool.dir/test/ObjectPoolTest.cpp.s
 .PHONY : test/ObjectPoolTest.cpp.s
 
+test/benchmark.o: test/benchmark.cpp.o
+.PHONY : test/benchmark.o
+
+# target to build an object file
+test/benchmark.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/MemoryPool.dir/build.make CMakeFiles/MemoryPool.dir/test/benchmark.cpp.o
+.PHONY : test/benchmark.cpp.o
+
+test/benchmark.i: test/benchmark.cpp.i
+.PHONY : test/benchmark.i
+
+# target to preprocess a source file
+test/benchmark.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/MemoryPool.dir/build.make CMakeFiles/MemoryPool.dir/test/benchmark.cpp.i
+.PHONY : test/benchmark.cpp.i
+
+test/benchmark.s: test/benchmark.cpp.s
+.PHONY : test/benchmark.s
+
+# target to generate assembly for a file
+test/benchmark.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/MemoryPool.dir/build.make CMakeFiles/MemoryPool.dir/test/benchmark.cpp.s
+.PHONY : test/benchmark.cpp.s
+
 test/unitTest.o: test/unitTest.cpp.o
 .PHONY : test/unitTest.o
 
@@ -305,6 +329,9 @@ help:
 	@echo "... test/ObjectPoolTest.o"
 	@echo "... test/ObjectPoolTest.i"
 	@echo "... test/ObjectPoolTest.s"
+	@echo "... test/benchmark.o"
+	@echo "... test/benchmark.i"
+	@echo "... test/benchmark.s"
 	@echo "... test/unitTest.o"
 	@echo "... test/unitTest.i"
 	@echo "... test/unitTest.s"
