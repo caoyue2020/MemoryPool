@@ -22,7 +22,8 @@ Span *PageCache::NewSpan(size_t k)
         // 记录【分配出去】的span地址与页号的映射关系
         for (size_t i = 0; i < span->_n; i++)
         {
-            _idSpanMap[span->_pageId + i] = span;
+            // _idSpanMap[span->_pageId + i] = span;
+            _idSpanMap.set(span->_pageId + i, span);
         }
         assert(span->_pageId != 0);
         return span;
@@ -44,18 +45,17 @@ Span *PageCache::NewSpan(size_t k)
             _spanLists[i - k].PushFront(nSpan);
             // 记录nSpan的地址与页号的映射关系
             // 在PC中，只需要记录第一页和最后一页的映射即可
-            _idSpanMap[nSpan->_pageId] = nSpan;
-            _idSpanMap[nSpan->_pageId + nSpan->_n - 1] = nSpan;
-
+            // _idSpanMap[nSpan->_pageId] = nSpan;
+            _idSpanMap.set(nSpan->_pageId, nSpan);
+            // _idSpanMap[nSpan->_pageId + nSpan->_n - 1] = nSpan;
+            _idSpanMap.set(nSpan->_pageId + nSpan->_n - 1, nSpan);
             // 记录Kspan的地址与页号的映射关系
             for (size_t j = 0; j < kSpan->_n; j++)
             {
-                _idSpanMap[kSpan->_pageId + j] = kSpan;
+                // _idSpanMap[kSpan->_pageId + j] = kSpan;
+                _idSpanMap.set(kSpan->_pageId + j, kSpan);
             }
 
-            // TODO:好像忘记把Kspan摘下来了？
-            assert(kSpan->_next == nullptr && kSpan->_prev == nullptr);
-            assert(kSpan->_pageId != 0);
             return kSpan;
         }
     }
@@ -85,13 +85,13 @@ Span *PageCache::MapObjectToSpan(void *obj)
     // 而某些同时线程读取映射的情况
     // 因此为了使代码正常运行这里必须加锁
     // 但是！每次写入/读取映射都需要竞争锁，性能会下降的非常厉害
-    std::unique_lock<std::mutex> Pagelg(_pageMtx);
+    // std::unique_lock<std::mutex> Pagelg(_pageMtx);
 
-    auto it = _idSpanMap.find(id); // 返回一个迭代器
+    Span* span = (Span*)_idSpanMap.get(id);
 
-    if (it != _idSpanMap.end())
+    if (span != nullptr)
     {
-        return it->second;
+        return span;
     } else
     {
         assert(false);
@@ -111,9 +111,8 @@ void PageCache::ReleaseSpanToPageCache(Span *span)
     while (1)
     {
         size_t leftID = span->_pageId - 1; // 左邻页
-        auto it = _idSpanMap.find(leftID);
-        if (it == _idSpanMap.end()) break; // 没找到
-        Span *leftSpan = it->second; // 左邻span
+        Span* leftSpan = (Span*)_idSpanMap.get(leftID);
+        if (leftSpan == nullptr) break; // 没找到
         if (leftSpan->_isUse) break; // CC在用
         if (leftSpan->_n + span->_n > PAGE_NUM - 1) break; //大于128
 
@@ -129,9 +128,8 @@ void PageCache::ReleaseSpanToPageCache(Span *span)
     while (1)
     {
         size_t rightID = span->_pageId + span->_n; // 右邻页
-        auto it = _idSpanMap.find(rightID);
-        if (it == _idSpanMap.end()) break;
-        Span *rightSpan = it->second;
+        Span* rightSpan = (Span*)_idSpanMap.get(rightID);
+        if (rightSpan == nullptr) break;
         if (rightSpan->_isUse == true) break;
         if (rightSpan->_n + span->_n > PAGE_NUM - 1) break; //大于128
 
@@ -146,6 +144,8 @@ void PageCache::ReleaseSpanToPageCache(Span *span)
     _spanLists[span->_n].PushFront(span);
     span->_isUse = false; // 此时该span才算是彻底回到PC的管辖
     // 修改映射
-    _idSpanMap[span->_pageId] = span;
-    _idSpanMap[span->_pageId + span->_n - 1] = span;
+    // _idSpanMap[span->_pageId] = span;
+    _idSpanMap.set(span->_pageId, span);
+    // _idSpanMap[span->_pageId + span->_n - 1] = span;
+    _idSpanMap.set(span->_pageId + span->_n - 1, span);
 }

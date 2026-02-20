@@ -6,6 +6,7 @@
 #include "Common.h"
 #include <unordered_map>
 #include "ObjectPool.h"
+#include "TCMalloc_PageMap3.h"
 
 class PageCache
 {
@@ -67,5 +68,6 @@ private:
     // PageID和span地址的映射关系
     // 块地址右移13位可得当前块的页号，
     // 再通过这个哈希表可以直接得到该块所属的span地址
-    std::unordered_map<size_t, Span *> _idSpanMap;
+    TCMalloc_PageMap3<48 - PAGE_SHIFT> _idSpanMap;
+    // std::unordered_map<size_t, Span *> _idSpanMap;
 };

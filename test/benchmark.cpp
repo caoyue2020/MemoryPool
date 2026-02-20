@@ -6,8 +6,11 @@
 #include <thread>
 #include <vector>
 #include <atomic>
-// #include <ctime>
-// #include <cstdio>
+#include <chrono>   // 引入高精度计时库
+#include <cstdio>   // printf 需要用到
+#include <iostream>
+
+using namespace std;
 
 // ntimes 一轮申请和释放内存的次数
 // nworks 表示创建多少个线程
@@ -21,14 +24,15 @@ void BenchmarkMalloc(size_t ntimes, size_t nworks, size_t rounds)
 
     for (size_t k = 0; k < nworks; ++k)
     {
-        // 修正2：[&] 已经隐式按引用捕获了外部变量，无需再额外写 k，规范书写
+        // 修正2：[&] 已经隐式按引用捕获了外部变量
         vthread[k] = std::thread([&]() {
             std::vector<void*> v;
             v.reserve(ntimes);
 
             for (size_t j = 0; j < rounds; ++j)
             {
-                size_t begin1 = clock();
+                // 使用基于物理挂钟的高精度计时
+                auto begin1 = std::chrono::high_resolution_clock::now();
                 for (size_t i = 0; i < ntimes; i++)
                 {
                     // size_t size = 16;
@@ -36,18 +40,19 @@ void BenchmarkMalloc(size_t ntimes, size_t nworks, size_t rounds)
                     // 每一次申请不同桶中的块，模拟真实场景下的内存碎片化申请
                     v.push_back(malloc(size));
                 }
-                size_t end1 = clock();
+                auto end1 = std::chrono::high_resolution_clock::now();
 
-                size_t begin2 = clock();
+                auto begin2 = std::chrono::high_resolution_clock::now();
                 for (size_t i = 0; i < ntimes; i++)
                 {
                     free(v[i]);
                 }
-                size_t end2 = clock();
+                auto end2 = std::chrono::high_resolution_clock::now();
                 v.clear();
 
-                malloc_costtime += (end1 - begin1);
-                free_costtime += (end2 - begin2);
+                // 严谨计算毫秒差值并累加
+                malloc_costtime += std::chrono::duration_cast<std::chrono::milliseconds>(end1 - begin1).count();
+                free_costtime += std::chrono::duration_cast<std::chrono::milliseconds>(end2 - begin2).count();
             }
         });
     }
@@ -68,7 +73,8 @@ void BenchmarkMalloc(size_t ntimes, size_t nworks, size_t rounds)
            nworks, nworks * rounds * ntimes, malloc_costtime.load() + free_costtime.load());
 }
 
-//                       单轮次申请释放次数 线程数 轮次
+
+// 单轮次申请释放次数 线程数 轮次
 void BenchmarkConcurrentMalloc(size_t ntimes, size_t nworks, size_t rounds)
 {
     std::vector<std::thread> vthread(nworks);
@@ -77,32 +83,31 @@ void BenchmarkConcurrentMalloc(size_t ntimes, size_t nworks, size_t rounds)
 
     for (size_t k = 0; k < nworks; ++k)
     {
-        // [](){} :lambda匿名表达式
         vthread[k] = std::thread([&]() {
             std::vector<void*> v;
             v.reserve(ntimes);
 
             for (size_t j = 0; j < rounds; ++j)
             {
-                size_t begin1 = clock();
+                auto begin1 = std::chrono::high_resolution_clock::now();
                 for (size_t i = 0; i < ntimes; i++)
                 {
                     // size_t size = 16;
                     size_t size = (16 + i) % 8192 + 1;
                     v.push_back(ConcurrentAlloc(size));
                 }
-                size_t end1 = clock();
+                auto end1 = std::chrono::high_resolution_clock::now();
 
-                size_t begin2 = clock();
+                auto begin2 = std::chrono::high_resolution_clock::now();
                 for (size_t i = 0; i < ntimes; i++)
                 {
                     ConcurrentFree(v[i]);
                 }
-                size_t end2 = clock();
+                auto end2 = std::chrono::high_resolution_clock::now();
                 v.clear();
 
-                malloc_costtime += (end1 - begin1);
-                free_costtime += (end2 - begin2);
+                malloc_costtime += std::chrono::duration_cast<std::chrono::milliseconds>(end1 - begin1).count();
+                free_costtime += std::chrono::duration_cast<std::chrono::milliseconds>(end2 - begin2).count();
             }
         });
     }
@@ -121,3 +126,4 @@ void BenchmarkConcurrentMalloc(size_t ntimes, size_t nworks, size_t rounds)
     printf("%zu个线程并发concurrent alloc&dealloc %zu次，总计花费：%zu ms\n\n",
            nworks, nworks * rounds * ntimes, malloc_costtime.load() + free_costtime.load());
 }
+
