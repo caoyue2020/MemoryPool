@@ -1,9 +1,12 @@
 //针对特定对象的定长内存池
 //2026.2.11
 
+#pragma once
 #include "Common.h"
+#include <vector>
 
-template<typename T>
+// 定义单次向系统申请的页数 (16页 * 8KB = 128KB)
+template<typename T, size_t ALLOC_PAGES = 16>
 class ObjectPool
 {
 private:
@@ -11,8 +14,10 @@ private:
     std::vector<char *> _M; //存放所有申请的内存池
     size_t _remanenetBytes = 0; //内存池剩余量
     void *_freelist = nullptr; //自由链表的头指针
+
     // 对齐一下，同时防止sizeof(T) < sizeof(void*)，以免切分的内存块无法放入指针
     size_t objSize = SizeClass::RoundUp(sizeof(T));
+
 
 public:
     //申请一个T类型大小的空间
@@ -30,16 +35,14 @@ public:
         {
             if (_remanenetBytes < objSize) //判定空间是否足够
             {
-                _remanenetBytes = 128 * 1024; //TODO:开128K。这里128可以考虑用常量表达式
-                _memory = (char *) malloc(_remanenetBytes); //TODO:_memory原本剩余的空间呢？
+                // 彻底替换 malloc 为底层的 SystemAlloc
+                // 16页 * 8192字节 = 131072字节 (128KB)
+                _remanenetBytes = ALLOC_PAGES << PAGE_SHIFT;
+                _memory = (char *) SystemAlloc(ALLOC_PAGES);
                 _M.push_back(_memory);
 
-                //malloc失败不会报错只会返回nullptr
-                //故这里需要手动抛出
-                if (_memory == nullptr)
-                {
-                    throw std::bad_alloc();
-                }
+                // 注意：由于 SystemAlloc 内部如果申请失败已经执行了 throw std::bad_alloc();
+                // 所以这里不再需要像之前 malloc 那样手动判断 _memory == nullptr
             }
 
             //如何分配内存，见MD
@@ -60,7 +63,6 @@ public:
         //显示调用析构函数进行清理
         obj->~T();
 
-
         //自由链表回收内存，见MD
         *(void **) obj = _freelist;
         _freelist = obj;
@@ -68,9 +70,11 @@ public:
 
     ~ObjectPool()
     {
+        // 彻底替换 free 为底层的 SystemFree
+        // 注意 SystemFree 需要传入分配时的页数
         for (char *ptr: _M)
         {
-            free(ptr);
+            SystemFree(ptr, ALLOC_PAGES);
         }
     }
 };
