@@ -9,6 +9,7 @@
 
 #pragma once
 #include "Common.h"
+#include "ObjectPool.h"
 
 // 针对 64 位系统，48位虚拟地址空间，8KB(13bits)一页
 // PageID 共有 48 - 13 = 35 bits
@@ -44,6 +45,8 @@ private:
     // 顶层目录数组
     Node* root_[ROOT_LENGTH];
 
+    ObjectPool<Leaf> _leafPool;
+    ObjectPool<Node> _nodePool;
 
 public:
     TCMalloc_PageMap3()
@@ -63,7 +66,8 @@ public:
         if (root_[i1] == nullptr)
         {
             // 注意：如果在内核/极底层的内存池开发中，不能用 new，需要用 SystemAlloc
-            Node *n = new Node;
+            // Node *n = new Node;
+            Node* n = _nodePool.New();
             memset(n, 0, sizeof(*n));
             root_[i1] = n;
         }
@@ -71,7 +75,8 @@ public:
         // 如果第二层对应的叶子节点不存在，开辟它
         if (root_[i1]->leafs[i2] == nullptr)
         {
-            Leaf *l = new Leaf;
+            // Leaf *l = new Leaf;
+            Leaf* l= _leafPool.New();
             memset(l, 0, sizeof(*l));
             root_[i1]->leafs[i2] = l;
         }
