@@ -12,33 +12,6 @@
 
 本内存池采用三级缓存架构，从内到外分别管理不同粒度的内存请求，逐步放大锁的粒度并降低锁的竞争频率：
 
-```mermaid
-flowchart TD
-    subgraph 线程私有层
-        T1((Thread 1)) <--> TC1[ThreadCache]
-        T2((Thread 2)) <--> TC2[ThreadCache]
-    end
-
-    subgraph 中心调度层
-        TC1 <--> |批量申请 / 延迟归还| CC[(CentralCache\n按大小分桶调度)]
-        TC2 <--> |批量申请 / 延迟归还| CC
-    end
-
-    subgraph 全局页缓存层
-        CC <--> |Span 申请 / 回收合并| PC[[PageCache\n以页为单位管理]]
-    end
-
-    subgraph 操作系统
-        PC <--> |mmap / VirtualAlloc| OS[(System Memory)]
-    end
-
-    style TC1 fill:#e1f5fe,stroke:#0288d1
-    style TC2 fill:#e1f5fe,stroke:#0288d1
-    style CC fill:#fff3e0,stroke:#f57c00
-    style PC fill:#e8f5e9,stroke:#388e3c
-
-```
-
 1. **ThreadCache (线程私有缓存)**：按块大小划分为多个独立的哈希桶，负责处理 `size <= 256KB` 的小块内存请求。基于 `thread_local` 实现，每个线程独享。分配和释放内存时**无需加锁**。
 2. **CentralCache (中心共享缓存)**：作为所有线程的公共内存池，与ThreadCache以相同的方式划分哈希桶，每个哈希桶包含元素为span的双向链表，每个span挂着自由链表。采用**桶锁**，仅在多个线程同时操作同一个桶时才会产生竞争。
 3. **PageCache (全局页缓存)**：以系统页（通常为 8KB）为单位管理大块内存。持有全局大锁，负责向操作系统申请原始物理内存，并在回收到相邻空闲页时进行合并，以缓解内存碎片问题。
@@ -51,65 +24,93 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    %% 样式定义
+    %% ================= 1. 全局节点提前声明 =================
+    Start(["ConcurrentAlloc(size)"])
+    SizeCheck{"size > 256KB?"}
+    Return(["返回指针给用户"])
+
+    %% ================= 2. 线程私有层 =================
+    subgraph TC [1. ThreadCache 层]
+        CheckTC{"_freeLists[index]<br>是否有空闲块?"}
+        TCPop["从自由链表头删获取 block"]
+        FetchCC["FetchFromCentralCache()<br>计算慢启动 batchNum"]
+    end
+
+    %% ================= 3. 全局共享层 & 系统底层 (深度嵌套) =================
+    subgraph CC [2. CentralCache 层 / 全局共享]
+        CCGetOne{"🔒加桶锁 mtx.lock()<br>当前桶是否有空闲 Span?"}
+        CCSlice["切分 Span 提取实际所需 block<br>🔓解桶锁 mtx.unlock()<br>1个返回用户，剩余批量挂回TC"]
+        ReqPC["🔓先解桶锁 (防交叉死锁!)<br>计算需要向PC申请的页数 k"]:::warnNode
+
+        %% 【深度嵌套 1】：PageCache 属于 CentralCache 的后勤仓库
+        subgraph PC [3. PageCache 核心调度]
+            PCBig["按页计算对齐大小 k"]
+            PCLock["🔒加全局大锁 _pageMtx.lock()"]
+            CheckPC{"k > 128页 ?"}
+            SearchBucket{"遍历桶 [k] 到 [128]<br>是否有空闲的大 Span?"}
+            PCSplit["Span 分裂算法 (切下k页)<br>剩余页组装成新Span挂回哈希桶"]
+            
+            SetUse["状态机: 标记派发 Span->_isUse = true"]:::warnNode
+            
+            PCUnlock["🔓解全局大锁 _pageMtx.unlock()"]
+            CCLock3["🔒重新加桶锁 mtx.lock()"]:::warnNode
+            
+            SysAlloc128["向 OS 申请 128 页"]
+            SysAllocK["向 OS 申请 k 页"]
+            
+            PCUnlock2["将大页记录到映射表<br>状态机: 标记 Span->_isUse = true<br>🔓解大锁 _pageMtx.unlock()"]:::warnNode
+
+            %% 【深度嵌套 2】：OS 属于 PageCache 独占的底层资源
+            subgraph OS [4. Operating System 底层调用]
+                Mem1[(系统物理内存)]:::sysNode
+                Mem2[(系统物理内存)]:::sysNode
+            end
+        end
+    end
+
+    %% ================= 4. 集中连线 =================
+    Start --> SizeCheck
+    SizeCheck -- "否 (≤256KB)" --> CheckTC
+    SizeCheck -- "是 (>256KB)" --> PCBig
+    
+    %% TC 逻辑
+    CheckTC -- "是 (Fast Path)" --> TCPop
+    TCPop --> Return
+    CheckTC -- "否 (Slow Path)" --> FetchCC
+    FetchCC --> CCGetOne
+    
+    %% CC 逻辑
+    CCGetOne -- "是" --> CCSlice
+    CCSlice --> Return
+    CCGetOne -- "否" --> ReqPC
+    ReqPC --> PCLock
+    
+    %% PC 内部逻辑
+    PCBig --> PCLock
+    PCLock --> CheckPC
+    CheckPC -- "否" --> SearchBucket
+    SearchBucket -- "是" --> PCSplit
+    
+    %% 状态机转移链路
+    PCSplit --> SetUse
+    SetUse --> PCUnlock
+    PCUnlock --> CCLock3
+    CCLock3 --> CCSlice
+    
+    %% OS 跨层调用 (被完美限制在 PC 内部)
+    SearchBucket -- "否" --> SysAlloc128
+    SysAlloc128 -. "mmap" .-> Mem1
+    Mem1 --> PCSplit
+    
+    CheckPC -- "是 (大对象)" --> SysAllocK
+    SysAllocK -. "mmap" .-> Mem2
+    Mem2 --> PCUnlock2
+    PCUnlock2 --> Return
+
+    %% ================= 5. 样式配置 =================
     classDef fastPath fill:#d4edda,stroke:#28a745,stroke-width:2px;
     classDef sysNode fill:#f8d7da,stroke:#dc3545,stroke-width:2px;
     classDef warnNode fill:#fff3cd,stroke:#ffc107,stroke-width:2px;
-
-    Start(["ConcurrentAlloc(size)"]) --> SizeCheck{"size > 256KB?"}
-
-    %% ================= ThreadCache 层 =================
-    subgraph TC [1. ThreadCache 层]
-        SizeCheck -- "否" --> CheckTC{"_freeLists[index]<br>是否有空闲块?"}
-        
-        CheckTC -- "是 (Fast Path)" --> TCPop["从自由链表头删获取 block"]
-        TCPop --> Return(["返回给用户"])
-        
-        CheckTC -- "否 (Slow Path)" --> FetchCC["FetchFromCentralCache()<br>计算慢启动 batchNum [2~512]"]
-    end
-
-    %% ================= CentralCache 层 =================
-    subgraph CC [2. CentralCache 层]
-        FetchCC --> CCGetOne{"🔒加桶锁 mtx.lock()<br>当前桶是否有空闲 Span?"}
-        
-        CCGetOne -- "是" --> CCSlice["切分 Span 提取实际所需 block<br>🔓解桶锁 mtx.unlock()<br>1个返回用户，剩余批量挂回TC"]
-        CCSlice --> Return
-        
-        CCGetOne -- "否" --> ReqPC["🔓先解桶锁 (防交叉死锁!)<br>计算需要向PC申请的页数 k"]:::warnNode
-    end
-
-    %% ================= PageCache 层 =================
-    subgraph PC [3. PageCache 层]
-        SizeCheck -- "是" --> PCBig["按页计算对齐大小 k"]
-        PCBig --> PCLock
-        ReqPC --> PCLock["🔒加全局大锁 _pageMtx.lock()"]
-        
-        PCLock --> CheckPC{"k > 128页 ?"}
-        
-        CheckPC -- "否" --> SearchBucket{"遍历桶 [k] 到 [128]<br>是否有空闲的大 Span?"}
-        
-        SearchBucket -- "是" --> PCSplit["Span 分裂算法 (切下k页)<br>剩余页组装成新Span挂回对应哈希桶"]
-        PCSplit --> PCUnlock["🔓解全局大锁 _pageMtx.unlock()"]
-        
-        %% 回调 CC
-        PCUnlock --> CCLock3["🔒重新加桶锁 mtx.lock()"]:::warnNode
-        CCLock3 --> CCSlice
-        
-        SearchBucket -- "否" --> SysAlloc128["向 OS 申请 128 页大块"]
-        SysAlloc128 --> PCSplit
-        
-        CheckPC -- "是(大对象)" --> SysAllocK["向 OS 申请 k 页大块"]
-        SysAllocK --> PCUnlock2["将大页记录到映射表<br>🔓解全局大锁 _pageMtx.unlock()"]
-        PCUnlock2 --> Return
-    end
-
-    %% ================= OS 层 =================
-    subgraph OS [4. Operating System 底层系统调用]
-        SysAlloc128 -. "SystemAlloc (mmap/VirtualAlloc)" .-> Mem1[(物理内存)]:::sysNode
-        SysAllocK -. "SystemAlloc (mmap/VirtualAlloc)" .-> Mem2[(物理内存)]:::sysNode
-    end
-
-    %% 应用绿色主线样式
     class CheckTC,TCPop,Return fastPath;
 ```
 
@@ -119,27 +120,80 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start((释放内存 ptr)) --> FindSpan[通过基数树查询 ptr 所属的 Span]
-    FindSpan --> PushTC[将内存块挂回 ThreadCache 对应的自由链表]
+    %% ================= 1. 全局节点提前声明 (防拉伸) =================
+    Start(["ConcurrentFree(ptr)"])
+    Return(["释放结束"])
     
-    PushTC --> CheckLen{ThreadCache 桶内\n块数量是否超过水位线?}
-    
-    CheckLen -- "否 (Fast Path)" --> End((释放完成))
-    
-    CheckLen -- "是 (Slow Path)" --> ReturnCC[截取部分链表批量还给 CentralCache]
-    ReturnCC --> DecUseCount[对应 Span 的 _usecount 递减]
-    
-    DecUseCount --> CheckUseCount{Span 的 _usecount\n是否归零?}
-    
-    CheckUseCount -- "否" --> End
-    
-    CheckUseCount -- "是" --> ReturnPC[说明物理页完整，将其交还给 PageCache]
-    ReturnPC --> Merge[PageCache 尝试合并前后相邻的空闲页]
-    Merge --> End
+    %% 映射阶段 (利用基数树的 Lock-Free 特性)
+    FindSpan["获取 ptr 所属 Span 与 size<br>(基数树无锁查询)"]
+    SizeCheck{"size > 256KB?"}
 
+    %% ================= 2. 线程私有层 (保持独立) =================
+    subgraph TC [1. ThreadCache 层]
+        TCPush["将 ptr 头插法挂回对应自由链表"]
+        CheckTCLen{"桶内元素数量<br>>= 批量上限?"}
+        PopBatch["ListTooLong()<br>截取一段链表准备还给 CC"]
+    end
+
+    %% ================= 3. 全局共享层 & 系统底层 (深度嵌套) =================
+    subgraph CC [2. CentralCache 层 / 全局共享]
+        CCLock{"🔒加桶锁 mtx.lock()<br>遍历 block 挂回各自的 Span<br>Span->_usecount 减 1"}
+        CheckUseCount{"该 Span 的<br>_usecount == 0 ?"}
+        CCUnlock1["🔓解桶锁 mtx.unlock()"]
+        ExtractSpan["将归零 Span 移入局部链表 emptySpans<br>🔓提前解开桶锁 mtx.unlock() (防死锁!)"]:::warnNode
+
+        %% 【深度嵌套 1】：PageCache 属于 CentralCache 的底层仓库
+        subgraph PC [3. PageCache 核心合并调度]
+            PCLock["🔒加全局大锁 _pageMtx.lock()"]
+            SetUnuse["状态机: 标记 Span->_isUse = false"]
+            Merge["循环前后探测相邻物理页 (仅探测 _isUse==false 的页)<br>不断合并出更大的连续 Span"]
+            CheckBig{"合并后的页数<br>> 128页 ?"}
+            PushPCBucket["将合并后的 Span 挂入对应哈希桶<br>🔓解全局大锁 _pageMtx.unlock()"]
+            ReturnOS["🔓解全局大锁 _pageMtx.unlock()<br>触发系统回收"]
+
+            %% 【深度嵌套 2】：OS 属于 PageCache 独占的系统资源
+            subgraph OS [4. Operating System 底层回收]
+                MemSystem[(系统物理内存)]:::sysNode
+            end
+        end
+    end
+
+    %% ================= 4. 集中连线 =================
+    Start --> FindSpan
+    FindSpan --> SizeCheck
+    
+    %% TC 内部与跨界调用
+    SizeCheck -- "否 (≤256KB)" --> TCPush
+    TCPush --> CheckTCLen
+    CheckTCLen -- "否 (Fast Path)" --> Return
+    CheckTCLen -- "是 (Slow Path)" --> PopBatch
+    
+    %% CC 内部跨界调用
+    PopBatch --> CCLock
+    CCLock --> CheckUseCount
+    CheckUseCount -- "否" --> CCUnlock1
+    CCUnlock1 --> Return
+    CheckUseCount -- "是" --> ExtractSpan
+    
+    %% PC 内部核心逻辑 (包含大对象直通)
+    SizeCheck -- "是 (大对象直通)" --> PCLock
+    ExtractSpan --> PCLock
+    PCLock --> SetUnuse
+    SetUnuse --> Merge
+    Merge --> CheckBig
+    CheckBig -- "否" --> PushPCBucket
+    PushPCBucket --> Return
+    CheckBig -- "是" --> ReturnOS
+    
+    %% OS 跨层回收 (被完美限制在 PC 内部)
+    ReturnOS -. "SystemFree (munmap / VirtualFree)" .-> MemSystem
+    MemSystem --> Return
+
+    %% ================= 5. 样式配置 =================
     classDef fastPath fill:#d4edda,stroke:#28a745,stroke-width:2px;
-    class CheckLen,End fastPath;
-
+    classDef sysNode fill:#f8d7da,stroke:#dc3545,stroke-width:2px;
+    classDef warnNode fill:#fff3cd,stroke:#ffc107,stroke-width:2px;
+    class FindSpan,SizeCheck,TCPush,CheckTCLen,Return fastPath;
 ```
 
 
@@ -151,6 +205,9 @@ flowchart TD
 * **实现**：引入 64 位系统下的三层基数树（PageMap）。建立映射时（写操作）由 PageCache 大锁保护；由于树的底层结构静态稳定，硬件可保证指针对齐读写的原子性，因此反查映射时（读操作）实现了**无锁化 (Lock-Free)**，大幅提升了并发释放的效率。
 
 
+
+
+
 2. **局部链表优化临界区**
 * **背景**：CentralCache 向 PageCache 归还 Span 时，如果不提前释放桶锁，容易导致“锁护送”现象。
 * **实现**：在 `ReleaseListToSpans` 中使用局部变量 `emptySpans` 暂存需要归还的 Span。提前解除 CentralCache 的桶锁后，再统一获取 PageCache 大锁进行归还。这种设计严格控制了锁的持有时间。
@@ -160,6 +217,30 @@ flowchart TD
 * **背景**：内存池运行过程中需要管理自身的元数据（如 `Span` 对象），如果依赖原生 `new/delete`，会造成循环调用。
 * **实现**：实现了一个基于直接向系统申请大块内存的定长对象池（ObjectPool），专门用于内部元数据的分配，做到了与系统原生分配器的彻底解耦。
 
+```mermaid
+block-beta
+    columns 1
+    Title("定长对象池 ObjectPool<Span> 内部结构")
+    
+    block:SysBlock
+        columns 4
+        SysLabel("SystemAlloc<br>(128KB 连续物理内存)")
+        S1["Span 实例 1"]
+        S2["Span 实例 2"]
+        S3["未分配内存指针<br>_memory"]
+    end
+    
+    block:FreeListBlock
+        columns 3
+        FreeLabel("被回收的 Span<br>(废弃重复利用)")
+        F1["Span 实例 6"]
+        F2["Span 实例 3"]
+    end
+    
+    %% 连接线表示优先从 FreeList 拿，没有再切分 _memory
+    FreeListBlock -- "1. 优先重用" --> Out("分配出 Span*")
+    SysBlock -- "2. 切分新块" --> Out
+```
 
 
 ---
