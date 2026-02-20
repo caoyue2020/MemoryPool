@@ -15,6 +15,8 @@ constexpr size_t PAGE_NUM = 129; // PageCash中最大的span控制的页数（�
 constexpr size_t PAGE_SHIFT = 13; // 一页的位数，这里一页设为8K，13位
 
 
+
+// 根据不同的操作系统引入底层的系统 API 头文件
 #ifdef _WIN32
 #include <Windows.h>
 #else
@@ -22,49 +24,63 @@ constexpr size_t PAGE_SHIFT = 13; // 一页的位数，这里一页设为8K，13
 #include <unistd.h>
 #endif
 
-// 直接去堆上按页申请空间
-inline static void *SystemAlloc(size_t kpage)
+// 直接去堆上按页申请物理/虚拟内存
+inline static void* SystemAlloc(size_t kpage)
 {
-    // 假设 PAGE_SHIFT 在 Common.h 中定义为 13 (8KB)
-    // 1. 计算总字节数
+    // 1. 将“页数”转换为真实的“字节数”
     size_t size = kpage << PAGE_SHIFT;
+    void* ptr = nullptr;
 
 #ifdef _WIN32
-    // Windows: 既保留又提交，且可读可写
-    void *ptr = VirtualAlloc(0, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    // Windows 平台 API：VirtualAlloc
+    // 参数1: 0 表示让操作系统自动选择一块合适的虚拟地址
+    // 参数2: size 申请的总字节数
+    // 参数3: MEM_COMMIT | MEM_RESERVE 表示同时保留地址空间并提交物理内存
+    // 参数4: PAGE_READWRITE 表示这块内存可读可写
+    ptr = VirtualAlloc(0, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 #else
-    // Linux: 匿名私有映射，可读可写
-    // fd填-1，offset填0
-    void *ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    // Linux/macOS 平台 API：mmap (Memory Mapped)
+    // 参数1: NULL 表示让操作系统自动选择地址
+    // 参数2: size 申请的总字节数
+    // 参数3: PROT_READ | PROT_WRITE 可读可写
+    // 参数4: MAP_PRIVATE | MAP_ANONYMOUS 匿名私有映射（不映射到磁盘文件，纯当物理内存用）
+    // 参数5: -1 (因为是匿名映射，不需要文件描述符 fd)
+    // 参数6: 0 (偏移量)
+    ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
-    // Linux下失败返回 MAP_FAILED ((void*)-1)，需要修正为 nullptr 以便统一判断
+    // Linux 下 mmap 失败不会返回 nullptr，而是返回 MAP_FAILED (即 (void*)-1)
+    // 这里做一次统一的抹平处理
     if (ptr == MAP_FAILED)
     {
         ptr = nullptr;
     }
 #endif
 
+    // 内存耗尽时的终极防御
     if (ptr == nullptr)
     {
-        // 申请失败，抛出标准异常
         throw std::bad_alloc();
     }
 
     return ptr;
 }
 
-// 对应的释放函数（可选，如果你需要把内存还给系统）
-inline static void SystemFree(void *ptr, size_t kpage)
+// 将内存彻底还给操作系统
+inline static void SystemFree(void* ptr, size_t kpage)
 {
-    size_t size = kpage << 13;
+    size_t size = kpage << PAGE_SHIFT;
+
 #ifdef _WIN32
-    // Windows 释放: MEM_RELEASE
+    // Windows 平台释放
+    // 参数2传0，且第三个参数必须是 MEM_RELEASE，表示连地址空间带物理内存一起释放
     VirtualFree(ptr, 0, MEM_RELEASE);
 #else
-    // Linux 释放
+    // Linux/macOS 平台释放
     munmap(ptr, size);
 #endif
 }
+
+
 
 //获取obj指向的内存块中存储的指针
 inline void *&ObjNext(void *obj)
@@ -72,6 +88,7 @@ inline void *&ObjNext(void *obj)
     // 这里返回值要加引用，不仅能读取还能修改
     return *(void **) obj;
 }
+
 
 // 自由链表
 class FreeList
