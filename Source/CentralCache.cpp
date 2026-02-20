@@ -164,6 +164,7 @@ void CentralCache::ReleaseListToSpans(void *start, size_t size)
 // void CentralCache::ReleaseListToSpans(void *start, size_t size) {
 //     // 先根据size找到对应的桶
 //     // 不过这里找到对应桶是为了对桶上锁，而不是利用index寻找span
+        // 虽然来自不同的span，但一定在同一个桶（size相同），因此锁是在while外面上的
 //     size_t index = SizeClass::Index(size);
 //     {// 对CC的桶进行操作，需要加锁
 //         std::unique_lock<std::mutex> CClg(_spanLists[index].mtx);
