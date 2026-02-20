@@ -213,33 +213,6 @@ flowchart TD
 * **背景**：内存池运行过程中需要管理自身的元数据（如 `Span` 对象），如果依赖原生 `new/delete`，会造成循环调用。
 * **实现**：实现了一个基于直接向系统申请大块内存的定长对象池（ObjectPool），专门用于内部元数据的分配，做到了与系统原生分配器的彻底解耦。
 
-```mermaid
-block-beta
-    columns 1
-    Title("定长对象池 ObjectPool<Span> 内部结构")
-    
-    block:SysBlock
-        columns 4
-        SysLabel("SystemAlloc<br>(128KB 连续物理内存)")
-        S1["Span 实例 1"]
-        S2["Span 实例 2"]
-        S3["未分配内存指针<br>_memory"]
-    end
-    
-    block:FreeListBlock
-        columns 3
-        FreeLabel("被回收的 Span<br>(废弃重复利用)")
-        F1["Span 实例 6"]
-        F2["Span 实例 3"]
-    end
-    
-    %% 连接线表示优先从 FreeList 拿，没有再切分 _memory
-    FreeListBlock -- "1. 优先重用" --> Out("分配出 Span*")
-    SysBlock -- "2. 切分新块" --> Out
-```
-
-
----
 
 ## 五、 基准测试 (Benchmarks)
 
@@ -256,7 +229,6 @@ block-beta
 
 测试结果表明，在持续的高并发小内存分配场景下，该缓存架构能有效减少线程间的阻塞等待，性能相较于原生实现有较明显的改善。
 
----
 
 ## 六、 编译与运行 (Quick Start)
 
