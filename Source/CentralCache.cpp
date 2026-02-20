@@ -5,14 +5,15 @@
 #include "CentralCache.h"
 #include "PageCache.h"
 
-size_t CentralCache::FetchRangeObj(void*& start, void*& end, size_t batchNum, size_t size) {
+size_t CentralCache::FetchRangeObj(void *&start, void *&end, size_t batchNum, size_t size)
+{
     // 为什么这里不直接传入index？
     size_t index = SizeClass::Index(size);
 
     // 获取一个非空的span指针，从该span的frreList上取下连续内存块，整个过程加锁
     {
         std::unique_lock<std::mutex> lg(_spanLists[index].mtx);
-        Span* span = getOneSpan(_spanLists[index], size);
+        Span *span = getOneSpan(_spanLists[index], size);
         assert(span);
         assert(span->_freeList);
 
@@ -20,9 +21,10 @@ size_t CentralCache::FetchRangeObj(void*& start, void*& end, size_t batchNum, si
         // 1. end 向后挪动batchNum-1个位置
         // 2. 如果span可用的块小于batchNum，需提前结束，即Next(end)!=nullptr
         // 3. 需要对end后移的次数计数以返回实际分配的块数量
-        start = end = span-> _freeList;
+        start = end = span->_freeList;
         size_t actualNum = 1;
-        while (actualNum < batchNum && ObjNext(end) != nullptr) {
+        while (actualNum < batchNum && ObjNext(end) != nullptr)
+        {
             end = ObjNext(end);
             actualNum++;
         }
@@ -39,10 +41,12 @@ size_t CentralCache::FetchRangeObj(void*& start, void*& end, size_t batchNum, si
     }
 }
 
-Span* CentralCache::getOneSpan(SpanList &list, size_t size) {
+Span *CentralCache::getOneSpan(SpanList &list, size_t size)
+{
     // 1. 遍历自身
-    Span* it = list.Begin();
-    while (it != list.End()) {
+    Span *it = list.Begin();
+    while (it != list.End())
+    {
         if (it->_freeList != nullptr)
             return it; // 找到了管理空间不为空的span
         it = it->_next;
@@ -59,12 +63,12 @@ Span* CentralCache::getOneSpan(SpanList &list, size_t size) {
     // 需要注意，由于NewSpan内部存在递归
     // 函数没出栈lock_guard不解锁，导致递归的函数不能进栈，会发生死锁
     // 因此要在NewSpan外部去加锁
-    Span* span = nullptr;
+    Span *span = nullptr;
     {
         std::lock_guard<std::mutex> lg(PageCache::getInstance()->_pageMtx);
         span = PageCache::getInstance()->NewSpan(k);
 
-        assert(span != nullptr);
+        assert(span);
         assert(span->_pageId != 0);
         // 注意，这个操作必须写在PC锁内，否则可能线程A刚申请了span。
         // 另一半因为线程B释放span触发了PC的span合并，导致该span
@@ -74,14 +78,15 @@ Span* CentralCache::getOneSpan(SpanList &list, size_t size) {
     }
 
     // 2.2 按size划分连续内存空间
-    char* start = (char*)(span->_pageId << PAGE_SHIFT); // start用char*，方便后续的+=操作
-    char* end =  (char*)(start + (span->_n << PAGE_SHIFT));
+    char *start = (char *) (span->_pageId << PAGE_SHIFT); // start用char*，方便后续的+=操作
+    char *end = (char *) (start + (span->_n << PAGE_SHIFT));
 
     span->_freeList = start; // 移动到freeList
-    void* tail = start; // 记录已经划分的区域末端
+    void *tail = start; // 记录已经划分的区域末端
 
     start += size;
-    while (start < end) {
+    while (start < end)
+    {
         ObjNext(tail) = start; // 让tail指向start
         tail = start;
         start += size;
@@ -98,45 +103,116 @@ Span* CentralCache::getOneSpan(SpanList &list, size_t size) {
     return span;
 }
 
+// void CentralCache::ReleaseListToSpans(void *start, size_t size) {
+//     size_t index = SizeClass::Index(size);
+//
+//     // 【核心优化1】创建一个局部的 SpanList，用于暂存所有 _usecount 减为 0 的 Span
+//     // 局部变量属于线程私有，操作它完全不需要加锁
+//     SpanList emptySpans;
+//
+//     { // 限制 CClg 的作用域，确保只在操作 _spanLists 时加锁
+//         std::unique_lock<std::mutex> CClg(_spanLists[index].mtx);
+//
+//         Span* lastSpan = nullptr; // 缓存上一次查到的 Span
+//         size_t lastLeftPageId = 0;    // 缓存上一次的 PageId
+//         size_t lastRightPageId = 0;    // 缓存上一次的 PageId
+//
+//         while (start) {
+//             void* next = ObjNext(start);
+//             size_t pageId = (size_t)start >> PAGE_SHIFT;
+//
+//             Span* span = nullptr;
+//             // 局部性优化：如果和上一个 block 属于同一页，直接复用结果！免去查表和加锁！
+//             if (lastLeftPageId <= pageId && pageId <= lastRightPageId ) {
+//                 span = lastSpan;
+//             } else {
+//                 // 只有跨页了，才去老老实实加全局大锁查映射
+//                 span = PageCache::getInstance()->MapObjectToSpan(start);
+//                 lastSpan = span;
+//                 lastLeftPageId = pageId;
+//                 lastRightPageId = pageId + span -> _n -1;
+//             }
+//
+//             // 2. 将 block 头插到 span 的 freelist 中
+//             ObjNext(start) = span->_freeList;
+//             span->_freeList = start;
+//             span->_usecount--;
+//
+//             // 3. 如果 span 的所有 block 都还回来了
+//             if (span->_usecount == 0) {
+//                 // 仅将其从 CentralCache 的双向链表中剔除
+//                 _spanLists[index].Erase(span);
+//                 span->_freeList = nullptr;
+//                 span->_next = nullptr;
+//                 span->_prev = nullptr;
+//
+//                 // 将其收集到局部的 emptySpans 链表中，延迟向 PageCache 归还
+//                 emptySpans.PushFront(span);
+//             }
+//             start = next;
+//         }
+//     } // 离开作用域，CClg 自动解锁！极大地缩短了 CC 桶锁的占用时间！
+//
+//     // 【核心优化2】在 CC 桶锁解开之后，统一去抢 PC 大锁，进行批量归还
+//     if (!emptySpans.Empty()) {
+//         std::unique_lock<std::mutex> PClg(PageCache::getInstance()->_pageMtx);
+//
+//         // 遍历局部的 emptySpans，一次性交还给 PageCache
+//         Span* it = emptySpans.Begin();
+//         while (it != emptySpans.End()) {
+//             // 必须先保存下一个节点，因为 ReleaseSpanToPageCache 内部
+//             // 在进行前后页合并时，肯定会修改 span 的 _next 和 _prev 指针
+//             Span* next = it->_next;
+//
+//             PageCache::getInstance()->ReleaseSpanToPageCache(it);
+//
+//             it = next;
+//         }
+//     }
+// }
 
-void CentralCache::ReleaseListToSpans(void *start, size_t size) {
+
+void CentralCache::ReleaseListToSpans(void *start, size_t size)
+{
     // 先根据size找到对应的桶
     // 不过这里找到对应桶是为了对桶上锁，而不是利用index寻找span
     size_t index = SizeClass::Index(size);
-    {// 对CC的桶进行操作，需要加锁
-        std::unique_lock<std::mutex> CClg(_spanLists[index].mtx);
 
-        // 循环操作弹出链表的每一个block
-        // TODO:这一块的性能应该可以优化一下
-        while (start) {
-            void* next = ObjNext(start);
-            // 1. 找到对应的span
-            Span* span = PageCache::getInstance()->MapObjectToSpan(start);
-            // 2. 有个比较抽象的地方是TC中使用的是封装过的FreeList类
-            // 而CC中span使用的是非常原始的void* _freeList
-            // 所以这里对链表的插入操作还得从重写
-            ObjNext(start) = span->_freeList;
-            span->_freeList = start;
-            // 3.还回一个块，useCount减1
-            span->_usecount--;
-            if (span->_usecount == 0) {//等于0说明span管理的页空间的所有块均被释放
-                // 将span从spanList中断开
-                _spanLists[index].Erase(span);
-                // 清除span的指针，PC回收span只在意span的pageID和pageNum
-                span->_freeList = nullptr;
-                span->_next = nullptr;
-                span->_prev = nullptr;
-                CClg.unlock(); //PC处理归还的span时解除桶锁
-                //TODO:循环内重复上锁解锁以及PC的span合并？会不会不太好
-                {// 归还span，需对PC上锁
-                    std::unique_lock<std::mutex> PClg(PageCache::getInstance()->_pageMtx);
-                    PageCache::getInstance()->ReleaseSpanToPageCache(span);
-                }
-                CClg.lock(); // PC处理完加回桶锁
+    // 循环操作弹出链表的每一个block
+    // TODO:这一块的性能应该可以优化一下
+    while (start)
+    {
+        void *next = ObjNext(start);
+        // 1. 找到对应的span
+        Span *span = PageCache::getInstance()->MapObjectToSpan(start);
+
+        // 对span所在的桶上锁
+        _spanLists[index].mtx.lock();
+        // 2. 有个比较抽象的地方是TC中使用的是封装过的FreeList类
+        // 而CC中span使用的是非常原始的void* _freeList
+        // 所以这里对链表的插入操作还得从重写
+        ObjNext(start) = span->_freeList;
+        span->_freeList = start;
+        // 3.还回一个块，useCount减1
+        span->_usecount--;
+        if (span->_usecount == 0) //等于0说明span管理的页空间的所有块均被释放
+        {
+            // 将span从spanList中断开
+            _spanLists[index].Erase(span);
+            // 清除span的指针，PC回收span只在意span的pageID和pageNum
+            span->_freeList = nullptr;
+            span->_next = nullptr;
+            span->_prev = nullptr;
+            _spanLists[index].mtx.unlock(); //PC处理归还的span时解除桶锁
+
+            //TODO:循环内重复上锁解锁以及PC的span合并？会不会不太好
+            {
+                // 归还span，需对PC上锁
+                std::unique_lock<std::mutex> PClg(PageCache::getInstance()->_pageMtx);
+                PageCache::getInstance()->ReleaseSpanToPageCache(span);
             }
-            // 4.下一个block
-            start = next;
         }
+        // 4.下一个block
+        start = next;
     }
-
 }

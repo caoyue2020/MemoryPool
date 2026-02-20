@@ -31,8 +31,10 @@ void BenchmarkMalloc(size_t ntimes, size_t nworks, size_t rounds)
                 size_t begin1 = clock();
                 for (size_t i = 0; i < ntimes; i++)
                 {
+                    // size_t size = 16;
+                    size_t size = (16 + i) % 8192 + 1;
                     // 每一次申请不同桶中的块，模拟真实场景下的内存碎片化申请
-                    v.push_back(malloc((16 + i) % 8192 + 1));
+                    v.push_back(malloc(size));
                 }
                 size_t end1 = clock();
 
@@ -85,6 +87,7 @@ void BenchmarkConcurrentMalloc(size_t ntimes, size_t nworks, size_t rounds)
                 size_t begin1 = clock();
                 for (size_t i = 0; i < ntimes; i++)
                 {
+                    // size_t size = 16;
                     size_t size = (16 + i) % 8192 + 1;
                     v.push_back(ConcurrentAlloc(size));
                 }
