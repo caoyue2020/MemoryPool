@@ -13,10 +13,10 @@ int main()
     cout << "==========================================================" << endl;
 
     // 这里表示4个线程，每个线程申请1万次，执行10轮，总共申请40万次
-    BenchmarkConcurrentMalloc(n, 8, 1000);
+    BenchmarkConcurrentMalloc(n, 8, 10000);
 
     // 作为对比参照组
-    BenchmarkMalloc(n, 8, 1000);
+    BenchmarkMalloc(n, 8, 10000);
 
     cout << "==========================================================" << endl;
 
