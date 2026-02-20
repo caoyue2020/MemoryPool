@@ -39,10 +39,9 @@ flowchart TD
 
 ```
 
-1. **ThreadCache (线程私有缓存)**：负责处理 `size <= 256KB` 的小块内存请求。基于 `thread_local` 实现，每个线程独享。分配和释放内存时**无需加锁**。
-2. **CentralCache (中心共享缓存)**：作为所有线程的公共内存池，按块大小（SizeClass）划分为多个独立的哈希桶。采用**细粒度桶锁**，仅在多个线程同时操作同一个桶时才会产生竞争。
+1. **ThreadCache (线程私有缓存)**：按块大小划分为多个独立的哈希桶，负责处理 `size <= 256KB` 的小块内存请求。基于 `thread_local` 实现，每个线程独享。分配和释放内存时**无需加锁**。
+2. **CentralCache (中心共享缓存)**：作为所有线程的公共内存池，与ThreadCache以相同的方式划分哈希桶，每个哈希桶包含元素为span的双向链表，每个span挂着自由链表。采用**桶锁**，仅在多个线程同时操作同一个桶时才会产生竞争。
 3. **PageCache (全局页缓存)**：以系统页（通常为 8KB）为单位管理大块内存。持有全局大锁，负责向操作系统申请原始物理内存，并在回收到相邻空闲页时进行合并，以缓解内存碎片问题。
-
 
 
 ## 三、 数据流转解析 (Data Flow)
@@ -52,31 +51,69 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Start((申请内存 size)) --> Calc[计算对应的哈希桶索引]
-    Calc --> CheckTC{ThreadCache\n当前桶是否有空闲块?}
-    
-    CheckTC -- "是 (Fast Path)" --> Pop[从对应的自由链表头部取出一个块]
-    Pop --> Return((返回指针给用户))
-    
-    CheckTC -- "否 (Slow Path)" --> RequestCC[向 CentralCache 批量申请]
-    RequestCC --> CheckCC{CentralCache\n该桶是否有空闲 Span?}
-    
-    CheckCC -- "是" --> Slice[切分 Span 并批量返回给 TC]
-    Slice --> Return
-    
-    CheckCC -- "否" --> RequestPC[向 PageCache 申请新 Span]
-    RequestPC --> CheckPC{PageCache\n是否有足够连续页?}
-    
-    CheckPC -- "是" --> ReturnSpan[返回 Span 给 CentralCache]
-    ReturnSpan --> Slice
-    
-    CheckPC -- "否" --> SystemAlloc[向操作系统底层申请内存]
-    SystemAlloc --> ReturnSpan
-    
+    %% 样式定义
     classDef fastPath fill:#d4edda,stroke:#28a745,stroke-width:2px;
-    class CheckTC,Pop,Return fastPath;
+    classDef sysNode fill:#f8d7da,stroke:#dc3545,stroke-width:2px;
+    classDef warnNode fill:#fff3cd,stroke:#ffc107,stroke-width:2px;
 
+    Start(["ConcurrentAlloc(size)"]) --> SizeCheck{"size > 256KB?"}
+
+    %% ================= ThreadCache 层 =================
+    subgraph TC [1. ThreadCache 层]
+        SizeCheck -- "否" --> CheckTC{"_freeLists[index]<br>是否有空闲块?"}
+        
+        CheckTC -- "是 (Fast Path)" --> TCPop["从自由链表头删获取 block"]
+        TCPop --> Return(["返回给用户"])
+        
+        CheckTC -- "否 (Slow Path)" --> FetchCC["FetchFromCentralCache()<br>计算慢启动 batchNum [2~512]"]
+    end
+
+    %% ================= CentralCache 层 =================
+    subgraph CC [2. CentralCache 层]
+        FetchCC --> CCGetOne{"🔒加桶锁 mtx.lock()<br>当前桶是否有空闲 Span?"}
+        
+        CCGetOne -- "是" --> CCSlice["切分 Span 提取实际所需 block<br>🔓解桶锁 mtx.unlock()<br>1个返回用户，剩余批量挂回TC"]
+        CCSlice --> Return
+        
+        CCGetOne -- "否" --> ReqPC["🔓先解桶锁 (防交叉死锁!)<br>计算需要向PC申请的页数 k"]:::warnNode
+    end
+
+    %% ================= PageCache 层 =================
+    subgraph PC [3. PageCache 层]
+        SizeCheck -- "是" --> PCBig["按页计算对齐大小 k"]
+        PCBig --> PCLock
+        ReqPC --> PCLock["🔒加全局大锁 _pageMtx.lock()"]
+        
+        PCLock --> CheckPC{"k > 128页 ?"}
+        
+        CheckPC -- "否" --> SearchBucket{"遍历桶 [k] 到 [128]<br>是否有空闲的大 Span?"}
+        
+        SearchBucket -- "是" --> PCSplit["Span 分裂算法 (切下k页)<br>剩余页组装成新Span挂回对应哈希桶"]
+        PCSplit --> PCUnlock["🔓解全局大锁 _pageMtx.unlock()"]
+        
+        %% 回调 CC
+        PCUnlock --> CCLock3["🔒重新加桶锁 mtx.lock()"]:::warnNode
+        CCLock3 --> CCSlice
+        
+        SearchBucket -- "否" --> SysAlloc128["向 OS 申请 128 页大块"]
+        SysAlloc128 --> PCSplit
+        
+        CheckPC -- "是(大对象)" --> SysAllocK["向 OS 申请 k 页大块"]
+        SysAllocK --> PCUnlock2["将大页记录到映射表<br>🔓解全局大锁 _pageMtx.unlock()"]
+        PCUnlock2 --> Return
+    end
+
+    %% ================= OS 层 =================
+    subgraph OS [4. Operating System 底层系统调用]
+        SysAlloc128 -. "SystemAlloc (mmap/VirtualAlloc)" .-> Mem1[(物理内存)]:::sysNode
+        SysAllocK -. "SystemAlloc (mmap/VirtualAlloc)" .-> Mem2[(物理内存)]:::sysNode
+    end
+
+    %% 应用绿色主线样式
+    class CheckTC,TCPop,Return fastPath;
 ```
+
+
 
 ### 2. 内存释放逻辑 `ConcurrentFree(ptr)`
 
