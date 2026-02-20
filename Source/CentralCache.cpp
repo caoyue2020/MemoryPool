@@ -63,11 +63,14 @@ Span* CentralCache::getOneSpan(SpanList &list, size_t size) {
     {
         std::lock_guard<std::mutex> lg(PageCache::getInstance()->_pageMtx);
         span = PageCache::getInstance()->NewSpan(k);
+
+        assert(span != nullptr);
+        assert(span->_pageId != 0);
         // 注意，这个操作必须写在PC锁内，否则可能线程A刚申请了span。
         // 另一半因为线程B释放span触发了PC的span合并，导致该span
         // 既被分配给A又被PC管理
-        // TODO：释放span的代码没有改回false
         span->_isUse = true;
+        span->_objSize = size;
     }
 
     // 2.2 按size划分连续内存空间
@@ -108,7 +111,7 @@ void CentralCache::ReleaseListToSpans(void *start, size_t size) {
         while (start) {
             void* next = ObjNext(start);
             // 1. 找到对应的span
-            Span* span = PageCache::getInstance()->MapObjetcToSpan(start);
+            Span* span = PageCache::getInstance()->MapObjectToSpan(start);
             // 2. 有个比较抽象的地方是TC中使用的是封装过的FreeList类
             // 而CC中span使用的是非常原始的void* _freeList
             // 所以这里对链表的插入操作还得从重写

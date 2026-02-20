@@ -5,6 +5,7 @@
 #pragma once
 #include "Common.h"
 #include <unordered_map>
+#include "ObjectPool.h"
 
 class PageCache {
 public:
@@ -31,7 +32,7 @@ public:
      * @param obj 内存块指针
      * @return span指针
      */
-    Span* MapObjetcToSpan(void* obj);
+    Span* MapObjectToSpan(void* obj);
 
     // 管理CC释放的span，合并span前后空间
     // 整个过程需要加锁，因为Span的状态不能发生变化
@@ -56,6 +57,7 @@ public:
 private:
     PageCache() = default;
     SpanList _spanLists[PAGE_NUM];
+    ObjectPool<Span> _spanPool; // Span定长内存池
 
     // PageID和span地址的映射关系
     // 块地址右移13位可得当前块的页号，

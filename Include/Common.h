@@ -309,6 +309,7 @@ struct Span
     bool _isUse = false;
 
     // Span只有在CC中才会使用以下成员变量
+    size_t _objSize = 0; // span管理的页被切分的块大小
     Span* _next = nullptr; // 指向下一个span
     Span* _prev = nullptr; // 指向上一个span
     void* _freeList = nullptr; // span下挂载的内存块链表指针
@@ -392,6 +393,7 @@ public:
     SpanList()
     {
         //构造哨兵位头节点
+        // TODO:替换为定长内存池，这里要不要换？
         _head = new Span;
         //哨兵节点指向自己？
         _head->_next = _head;

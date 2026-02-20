@@ -21,8 +21,7 @@ Span *PageCache::NewSpan(size_t k) {
         for (size_t i=0; i<span->_n; i++) {
             _idSpanMap[span->_pageId + i] = span;
         }
-
-        return _spanLists[k].PopFront();
+        return span;
     }
 
     // ②K号后面的同有非空Span，记为n
@@ -30,7 +29,7 @@ Span *PageCache::NewSpan(size_t k) {
         if (!_spanLists[i].Empty()) {
             Span* nSpan = _spanLists[i].PopFront();
             // 分裂产生一个新的Span，该Span节点的空间需要新建立而不是用管理的空间
-            Span* kSpan = new Span;
+            Span* kSpan = _spanPool.New();
             kSpan->_pageId = nSpan->_pageId;
             kSpan->_n = k;
             nSpan->_pageId += k; // nSpan的pageId后移K
@@ -57,7 +56,7 @@ Span *PageCache::NewSpan(size_t k) {
     // 需要注意的是，span其实只是记录了页空间的信息，
     // 而不是像自由链表的指针一样占用了块空间
     // 这一点从span需要new就能看出。
-    Span* bigSpan = new Span;
+    Span* bigSpan = _spanPool.New();
     bigSpan->_pageId = (size_t)ptr >> PAGE_SHIFT; // 假设 PAGE_SHIFT 为 13
     bigSpan->_n = PAGE_NUM-1;
     // 将这个大 Span 挂到最大的桶里
@@ -67,8 +66,16 @@ Span *PageCache::NewSpan(size_t k) {
 }
 
 
-Span *PageCache::MapObjetcToSpan(void *obj) {
+Span *PageCache::MapObjectToSpan(void *obj) {
     size_t id = (size_t)obj >> PAGE_SHIFT;
+
+    // 这里需要对_idSpanMap进行加锁
+    // 不加锁的话，会出现 PC、CC的正在对unordered_map写入映射
+    // 而某些同时线程读取映射的情况
+    // 因此为了使代码正常运行这里必须加锁
+    // 但是！每次写入/读取映射都需要竞争锁，性能会下降的非常厉害
+    std::unique_lock<std::mutex> Pagelg(_pageMtx);
+
     auto it = _idSpanMap.find(id); // 返回一个迭代器
 
     if (it != _idSpanMap.end()) {
@@ -101,7 +108,8 @@ void PageCache::ReleaseSpanToPageCache(Span *span) {
         span->_n += leftSpan->_n;
         // 删除leftSpan
         _spanLists[leftSpan->_n].Erase(leftSpan);// 在对应桶中删除
-        delete leftSpan; // 删除对象
+        _spanPool.Delete(leftSpan); // 删除span
+
     }
 
     // 向右合并
@@ -117,7 +125,7 @@ void PageCache::ReleaseSpanToPageCache(Span *span) {
         span->_n += rightSpan->_n;
         // 删除leftSpan
         _spanLists[rightSpan->_n].Erase(rightSpan);// 在对应桶中删除
-        delete rightSpan; // 删除对象
+        _spanPool.Delete(rightSpan); // 删除对象
     }
 
     // 合并完成

@@ -7,23 +7,17 @@
 #include "ConcurrentAlloc.h"
 #include "./test/unitTest.h"
 
+int main()
+{
+    size_t n = 10000;
+    cout << "==========================================================" << endl;
+    // 这里表示4个线程，每个线程申请10万次，总共申请40万次
+    BenchmarkConcurrentMalloc(n, 4, 10);
+    cout << endl << endl;
 
-int main() {
-    // MultiThreadAlloc1();
-    // MultiThreadAlloc2();
-    // ThreadCache::getInstance()->PrintDebugInfo();
-    // CentralCache::getInstance()->PrintDebugInfo();
-    // PageCache::getInstance()->PrintDebugInfo();
+    // 这里表示4个线程，每个线程申请10万次，总共申请40万次
+    BenchmarkMalloc(n, 4, 10);
+    cout << "==========================================================" << endl;
 
-    //TODO:单次超过256KB的申请？
-    void* p1 = ConcurrentAlloc(257*1024); // 申请33页
-    ThreadCache::getInstance()->PrintDebugInfo();
-    CentralCache::getInstance()->PrintDebugInfo();
-    PageCache::getInstance()->PrintDebugInfo();
-
-    ConcurrentFree(p1, 257*1024);
-    ThreadCache::getInstance()->PrintDebugInfo();
-    CentralCache::getInstance()->PrintDebugInfo();
-    PageCache::getInstance()->PrintDebugInfo();
-
+    return 0;
 }

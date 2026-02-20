@@ -22,4 +22,5 @@ add_executable(MemoryPool
         test/unitTest.h
 
         main.cpp
+        test/benchmark.cpp
 )

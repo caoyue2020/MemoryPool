@@ -16,6 +16,7 @@ inline void* ConcurrentAlloc(size_t size)
         {
             std::unique_lock<std::mutex> pageLg(PageCache::getInstance()->_pageMtx);
             Span* span = PageCache::getInstance()->NewSpan(k);
+            span->_objSize = size;
             ptr = (void*)(span->_pageId << PAGE_SHIFT); // 通过span计算首内存地址
         }
         return ptr;
@@ -31,13 +32,14 @@ inline void* ConcurrentAlloc(size_t size)
  * @param size 释放的空间的大小
  * @return
  */
-inline void ConcurrentFree(void* ptr, size_t size)
+inline void ConcurrentFree(void* ptr)
 {
     assert(ptr); //传入指针不得为空
+
+    Span* span = PageCache::getInstance()->MapObjectToSpan(ptr); // 获取ptr对应的span
+    size_t size = span->_objSize; // 获取块大小
+
     if (size > MAX_BYTES) {
-        // todo:需要加锁
-        // newSpan申请空间的时候保证空间首尾地址映射过了
-        Span* span = PageCache::getInstance()->MapObjetcToSpan(ptr);
         {// 加page锁
             std::unique_lock<std::mutex> pageLg(PageCache::getInstance()->_pageMtx);
             // 超出256KB小于128页的span依然可以用这个函数释放
@@ -47,5 +49,4 @@ inline void ConcurrentFree(void* ptr, size_t size)
     else {
         ThreadCache::getInstance()->Deallocate(ptr, size);
     }
-
 }
