@@ -104,102 +104,107 @@ Span *CentralCache::getOneSpan(SpanList &list, size_t size)
 }
 
 
-// void CentralCache::ReleaseListToSpans(void *start, size_t size)
-// {
-//     size_t index = SizeClass::Index(size);
-//
-//     // 【核心优化1】创建一个局部的 SpanList，用于暂存所有 _usecount 减为 0 的 Span
-//     // 局部变量属于线程私有，操作它完全不需要加锁
-//     SpanList emptySpans;
-//
-//     {// 限制 CClg 的作用域，确保只在操作 _spanLists 时加锁
-//         std::unique_lock<std::mutex> CClg(_spanLists[index].mtx);
-//
-//         while (start)
-//         {
-//             void* next = ObjNext(start);
-//             // 1. 找到对应span
-//             Span* span = PageCache::getInstance()->MapObjectToSpan(start);
-//
-//             // 2. 将 block 头插到 span 的 freelist 中
-//             ObjNext(start) = span->_freeList;
-//             span->_freeList = start;
-//             span->_usecount--;
-//
-//             // 3. 如果 span 的所有 block 都还回来了
-//             if (span->_usecount == 0)
-//             {
-//                 // 仅将其从 CentralCache 的双向链表中剔除
-//                 _spanLists[index].Erase(span);
-//                 span->_freeList = nullptr;
-//                 span->_next = nullptr;
-//                 span->_prev = nullptr;
-//
-//                 // 将其收集到局部的 emptySpans 链表中，延迟向 PageCache 归还
-//                 emptySpans.PushFront(span);
-//             }
-//             start = next;
-//         }
-//     } // 离开作用域，CClg 自动解锁！极大地缩短了 CC 桶锁的占用时间！
-//
-//     // 【核心优化2】在 CC 桶锁解开之后，统一去抢 PC 大锁，进行批量归还
-//     if (!emptySpans.Empty())
-//     {
-//         std::unique_lock<std::mutex> PClg(PageCache::getInstance()->_pageMtx);
-//
-//         // 遍历局部的 emptySpans，一次性交还给 PageCache
-//         Span* it = emptySpans.Begin();
-//         while (it != emptySpans.End())
-//         {
-//             // 必须先保存下一个节点，因为 ReleaseSpanToPageCache 内部
-//             // 在进行前后页合并时，肯定会修改 span 的 _next 和 _prev 指针
-//             Span *next = it->_next;
-//             PageCache::getInstance()->ReleaseSpanToPageCache(it);
-//             it = next;
-//         }
-//     }
-// }
-
-
-void CentralCache::ReleaseListToSpans(void *start, size_t size) {
-    // 先根据size找到对应的桶
-    // 不过这里找到对应桶是为了对桶上锁，而不是利用index寻找span
-    // 虽然来自不同的span，但一定在同一个桶（size相同），因此锁是在while外面上的
+// 将桶锁和页锁的竞争从循环内部移除，转到循环的外部，理论上来说这降低了锁的开销
+// 能够提升回收的速度。但测试发现并没有效果，猜测原因是：
+// 这步操作最费时间的是PC的回收span和合并页内存。当前的写法并没有优化这个过程
+// 因此整体的时间变化微乎其微。
+// 不过这种写法还是能保护当前线程能一次性将内存块释放给CC而不是中途又要竞争桶锁而被挂起。
+void CentralCache::ReleaseListToSpans(void *start, size_t size)
+{
     size_t index = SizeClass::Index(size);
-    {// 对CC的桶进行操作，需要加锁
+
+    // 【核心优化1】创建一个局部的 SpanList，用于暂存所有 _usecount 减为 0 的 Span
+    // 局部变量属于线程私有，操作它完全不需要加锁
+    SpanList emptySpans;
+
+    {// 限制 CClg 的作用域，确保只在操作 _spanLists 时加锁
         std::unique_lock<std::mutex> CClg(_spanLists[index].mtx);
 
-        // 循环操作弹出链表的每一个block
-        // TODO:这一块的性能应该可以优化一下
-        while (start) {
+        while (start)
+        {
             void* next = ObjNext(start);
-            // 1. 找到对应的span
+            // 1. 找到对应span
             Span* span = PageCache::getInstance()->MapObjectToSpan(start);
-            // 2. 有个比较抽象的地方是TC中使用的是封装过的FreeList类
-            // 而CC中span使用的是非常原始的void* _freeList
-            // 所以这里对链表的插入操作还得从重写
+
+            // 2. 将 block 头插到 span 的 freelist 中
             ObjNext(start) = span->_freeList;
             span->_freeList = start;
-            // 3.还回一个块，useCount减1
             span->_usecount--;
-            if (span->_usecount == 0) {//等于0说明span管理的页空间的所有块均被释放
-                // 将span从spanList中断开
+
+            // 3. 如果 span 的所有 block 都还回来了
+            if (span->_usecount == 0)
+            {
+                // 仅将其从 CentralCache 的双向链表中剔除
                 _spanLists[index].Erase(span);
-                // 清除span的指针，PC回收span只在意span的pageID和pageNum
                 span->_freeList = nullptr;
                 span->_next = nullptr;
                 span->_prev = nullptr;
-                CClg.unlock(); //PC处理归还的span时解除桶锁
-                //TODO:循环内重复上锁解锁以及PC的span合并？会不会不太好
-                {// 归还span，需对PC上锁
-                    std::unique_lock<std::mutex> PClg(PageCache::getInstance()->_pageMtx);
-                    PageCache::getInstance()->ReleaseSpanToPageCache(span);
-                }
-                CClg.lock(); // PC处理完加回桶锁
+
+                // 将其收集到局部的 emptySpans 链表中，延迟向 PageCache 归还
+                emptySpans.PushFront(span);
             }
-            // 4.下一个block
             start = next;
         }
-    }
+    } // 离开作用域，CClg 自动解锁！极大地缩短了 CC 桶锁的占用时间！
 
+    // 【核心优化2】在 CC 桶锁解开之后，统一去抢 PC 大锁，进行批量归还
+    if (!emptySpans.Empty())
+    {
+        std::unique_lock<std::mutex> PClg(PageCache::getInstance()->_pageMtx);
+
+        // 遍历局部的 emptySpans，一次性交还给 PageCache
+        Span* it = emptySpans.Begin();
+        while (it != emptySpans.End())
+        {
+            // 必须先保存下一个节点，因为 ReleaseSpanToPageCache 内部
+            // 在进行前后页合并时，肯定会修改 span 的 _next 和 _prev 指针
+            Span *next = it->_next;
+            PageCache::getInstance()->ReleaseSpanToPageCache(it);
+            it = next;
+        }
+    }
 }
+
+
+// void CentralCache::ReleaseListToSpans(void *start, size_t size) {
+//     // 先根据size找到对应的桶
+//     // 不过这里找到对应桶是为了对桶上锁，而不是利用index寻找span
+//     // 虽然来自不同的span，但一定在同一个桶（size相同），因此锁是在while外面上的
+//     size_t index = SizeClass::Index(size);
+//     {// 对CC的桶进行操作，需要加锁
+//         std::unique_lock<std::mutex> CClg(_spanLists[index].mtx);
+
+//         // 循环操作弹出链表的每一个block
+//         // TODO:这一块的性能应该可以优化一下
+//         while (start) {
+//             void* next = ObjNext(start);
+//             // 1. 找到对应的span
+//             Span* span = PageCache::getInstance()->MapObjectToSpan(start);
+//             // 2. 有个比较抽象的地方是TC中使用的是封装过的FreeList类
+//             // 而CC中span使用的是非常原始的void* _freeList
+//             // 所以这里对链表的插入操作还得从重写
+//             ObjNext(start) = span->_freeList;
+//             span->_freeList = start;
+//             // 3.还回一个块，useCount减1
+//             span->_usecount--;
+//             if (span->_usecount == 0) {//等于0说明span管理的页空间的所有块均被释放
+//                 // 将span从spanList中断开
+//                 _spanLists[index].Erase(span);
+//                 // 清除span的指针，PC回收span只在意span的pageID和pageNum
+//                 span->_freeList = nullptr;
+//                 span->_next = nullptr;
+//                 span->_prev = nullptr;
+//                 CClg.unlock(); //PC处理归还的span时解除桶锁
+//                 //TODO:循环内重复上锁解锁以及PC的span合并？会不会不太好
+//                 {// 归还span，需对PC上锁
+//                     std::unique_lock<std::mutex> PClg(PageCache::getInstance()->_pageMtx);
+//                     PageCache::getInstance()->ReleaseSpanToPageCache(span);
+//                 }
+//                 CClg.lock(); // PC处理完加回桶锁
+//             }
+//             // 4.下一个block
+//             start = next;
+//         }
+//     }
+
+// }
