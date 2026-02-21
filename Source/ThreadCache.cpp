@@ -1,5 +1,6 @@
 #include "ThreadCache.h"
 #include "CentralCache.h"
+#include "PageCache.h"
 
 
 /**
@@ -81,5 +82,29 @@ void *ThreadCache::FetchFromCentralCache(size_t index, size_t alignSize)
         // 第一个返回给线程，剩余存入TC的FreeList
         _freeLists[index].PushRange(ObjNext(start), end, actualNum - 1);
         return start;
+    }
+}
+
+
+ThreadCache::~ThreadCache()
+{
+    for (size_t i=0; i<FREE_LIST_NUM; i++)
+    {
+        if (!_freeLists[i].Empty())
+        {
+            void* start = nullptr;
+            void* end = nullptr;
+            size_t count = _freeLists[i].Size(); // 当前链表内存块数量
+
+            // 将当前桶内剩余的所有内存块一口气全部弹出
+            _freeLists[i].PopRange(start, end, count);
+
+            // 通过第一个对象的地址，去基数树查询它所属的 Span
+            // 从而准确地知道这批内存块的单块字节数 (objSize)
+            Span* span = PageCache::getInstance()->MapObjectToSpan(start);
+
+            // 将这条长链表全部还给 CentralCache，完成真正的跨层回收
+            CentralCache::getInstance()->ReleaseListToSpans(start, span->_objSize);
+        }
     }
 }

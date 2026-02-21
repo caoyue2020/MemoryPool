@@ -13,6 +13,8 @@ public:
         return &pTLSThreadCache;
     }
 
+    ~ThreadCache();
+
     //TC给线程分配空间
     void *Allocate(size_t size);
 

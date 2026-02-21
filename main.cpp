@@ -9,13 +9,13 @@
 
 int main()
 {
-    size_t n = 10000; // 轮次
+    size_t n = 1000; // 轮次
     cout << "==========================================================" << endl;
     // 这里表示8个线程，每个线程申请1万次，执行10轮，总共申请80万次
     BenchmarkMalloc(n, 8, 10000);
 
     cout << "==========================================================" << endl;
-    BenchmarkConcurrentMalloc(n, 8, 1000);
+    BenchmarkConcurrentMalloc(n, 8, 10000);
 
 
     return 0;
