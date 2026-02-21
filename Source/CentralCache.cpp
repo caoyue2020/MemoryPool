@@ -109,7 +109,6 @@ Span *CentralCache::getOneSpan(SpanList &list, size_t size)
 // 该操作主要优化了桶锁和页锁的竞争，但仅在需要回收的span数量大于1的情况下
 // 但实际需要回收的span通常<=1，这种情况下页锁的竞争无论放在循环内外都只出现一次或不出现，
 // 其次桶锁本身竞争并不激烈， 因此整体的时间变化微乎其微。
-// 简单来说，桶锁优化收益低，页锁优化次数少
 void CentralCache::ReleaseListToSpans(void *start, size_t size)
 {
     size_t index = SizeClass::Index(size);
